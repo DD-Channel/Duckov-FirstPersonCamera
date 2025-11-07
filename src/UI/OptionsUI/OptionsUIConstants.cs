@@ -267,9 +267,14 @@ namespace FirstPersonCamera
         public const string LaserToggleKeyCodeKey = "FirstPersonCamera_LaserToggleKeyCode";
         
         /// <summary>
-        /// 选项键：武器检视快捷键
+        /// 选项键：武器检视快捷键（已废弃，使用InspectKeyCodeKey）
         /// </summary>
         public const string WeaponInspectKeyCodeKey = "FirstPersonCamera_WeaponInspectKeyCode";
+        
+        /// <summary>
+        /// 选项键：统一检视快捷键（枪械和近战共用）
+        /// </summary>
+        public const string InspectKeyCodeKey = "FirstPersonCamera_InspectKeyCode";
         #endregion
 
         #region 部位隐藏选项键

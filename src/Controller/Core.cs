@@ -5,6 +5,8 @@ using Duckov.Options;
 using Duckov.UI;
 using Duckov.Scenes;
 using Dialogues;
+using FirstPersonCamera.OptionsUI;
+using FirstPersonCamera.Utilities;
 
 namespace FirstPersonCamera
 {
@@ -344,8 +346,8 @@ namespace FirstPersonCamera
                 // 更新偏头输入
                 UpdatePeekInput(uiBlocking);
                 
-                // 检测武器检视按键
-                UpdateWeaponInspectInput(uiBlocking);
+                // 检测统一检视按键（根据武器类型自动选择枪械或近战检视）
+                UpdateUnifiedInspectInput(uiBlocking);
                 
                 // 检测鼠标左键状态，判断是否停止射击
                 bool mousePressed = false;
@@ -603,6 +605,7 @@ namespace FirstPersonCamera
         {
             // 停止武器检视（如果正在检视）
             try { StopWeaponInspect(); } catch { }
+            try { StopMeleeInspect(); } catch { }
             
             if (cinemachineVCam != null) cinemachineVCam.enabled = true;
             if (cameraArm != null) cameraArm.enabled = true;
@@ -692,6 +695,75 @@ namespace FirstPersonCamera
             if (!isFirstPersonMode) yield break;
             try { DisablePostProcessingBlurEffects(); } catch { }
         }
+        
+        /// <summary>
+        /// 统一的检视输入检测（根据武器类型自动选择枪械或近战检视）
+        /// </summary>
+        private void UpdateUnifiedInspectInput(bool uiBlocking)
+        {
+            if (uiBlocking) return;
+            
+            // 加载统一的检视按键
+            KeyCode inspectKey = KeyCode.H;
+            try
+            {
+                inspectKey = OptionsHelper.LoadKeyCode(
+                    OptionsUIConstants.InspectKeyCodeKey, 
+                    OptionsHelper.LoadKeyCode(OptionsUIConstants.WeaponInspectKeyCodeKey, KeyCode.H));
+            }
+            catch
+            {
+                inspectKey = KeyCode.H;
+            }
+            
+            // 避免同一帧重复检测
+            if (lastInspectKeyFrame == Time.frameCount) return;
+            
+            // 检测按键按下
+            bool keyPressed = false;
+            try
+            {
+                if (useNewInputSystem)
+                {
+                    var keyboard = Keyboard.current;
+                    if (keyboard != null)
+                    {
+                        keyPressed = GetKeyPressedThisFrame(keyboard, inspectKey);
+                    }
+                }
+                else
+                {
+                    keyPressed = Input.GetKeyDown(inspectKey);
+                }
+            }
+            catch { }
+            
+            if (keyPressed)
+            {
+                lastInspectKeyFrame = Time.frameCount;
+                
+                // 根据当前武器类型决定执行哪个检视
+                if (mainCharacter != null)
+                {
+                    // 优先检查近战武器
+                    var melee = mainCharacter.GetMeleeWeapon();
+                    if (melee != null)
+                    {
+                        StartMeleeInspect();
+                        return;
+                    }
+                    
+                    // 如果没有近战武器，检查枪械
+                    var gun = mainCharacter.GetGun();
+                    if (gun != null)
+                    {
+                        StartWeaponInspect();
+                        return;
+                    }
+                }
+            }
+        }
+        
         #endregion
     }
 }
