@@ -13,7 +13,7 @@ namespace FirstPersonCamera
     /// </summary>
     
     /// <summary>
-    /// 补丁原版的ShowHitMarker方法，在第一人称模式下禁用
+    /// 补丁原版的ShowHitMarker方法，在第一人称模式下禁用（仅对玩家角色）
     /// </summary>
     [HarmonyPatch(typeof(Accessory_Lazer), "ShowHitMarker")]
     internal static class LaserShowHitMarkerPatch
@@ -23,15 +23,24 @@ namespace FirstPersonCamera
             var controller = FirstPersonCameraController.Instance;
             if (controller != null && controller.IsFirstPersonMode)
             {
-                // 第一人称模式下，我们的逻辑会处理红点，禁用原版逻辑
-                return false;
+                // 检查是否是玩家角色的激光器
+                var characterField = AccessTools.Field(typeof(Accessory_Lazer), "character");
+                var character = characterField?.GetValue(__instance) as CharacterMainControl;
+                var mainCharacter = CharacterMainControl.Main;
+                
+                // 只对玩家角色的激光器禁用原版逻辑
+                if (character == mainCharacter)
+                {
+                    // 第一人称模式下，我们的逻辑会处理红点，禁用原版逻辑
+                    return false;
+                }
             }
-            return true; // 第三人称模式，允许原版逻辑执行
+            return true; // 第三人称模式或非玩家角色，允许原版逻辑执行
         }
     }
 
     /// <summary>
-    /// 补丁原版的HideHitMarker方法，在第一人称模式下禁用
+    /// 补丁原版的HideHitMarker方法，在第一人称模式下禁用（仅对玩家角色）
     /// </summary>
     [HarmonyPatch(typeof(Accessory_Lazer), "HideHitMarker")]
     internal static class LaserHideHitMarkerPatch
@@ -41,10 +50,19 @@ namespace FirstPersonCamera
             var controller = FirstPersonCameraController.Instance;
             if (controller != null && controller.IsFirstPersonMode)
             {
-                // 第一人称模式下，我们的逻辑会处理红点，禁用原版逻辑
-                return false;
+                // 检查是否是玩家角色的激光器
+                var characterField = AccessTools.Field(typeof(Accessory_Lazer), "character");
+                var character = characterField?.GetValue(__instance) as CharacterMainControl;
+                var mainCharacter = CharacterMainControl.Main;
+                
+                // 只对玩家角色的激光器禁用原版逻辑
+                if (character == mainCharacter)
+                {
+                    // 第一人称模式下，我们的逻辑会处理红点，禁用原版逻辑
+                    return false;
+                }
             }
-            return true; // 第三人称模式，允许原版逻辑执行
+            return true; // 第三人称模式或非玩家角色，允许原版逻辑执行
         }
     }
 
@@ -131,6 +149,16 @@ namespace FirstPersonCamera
                 {
                     return true; // 角色不存在，走原版逻辑
                 }
+            }
+
+            // 关键修复：只对玩家角色的激光器应用第一人称逻辑
+            // 敌人的激光器应该走原版逻辑，不应该锁定到玩家的准星
+            var mainCharacter = CharacterMainControl.Main;
+            if (character != mainCharacter)
+            {
+                // 不是玩家角色，走原版逻辑
+                ResetLineRendererSpace(__instance);
+                return true;
             }
 
             // 检查是否在瞄准状态
@@ -307,18 +335,26 @@ namespace FirstPersonCamera
                 return;
             }
 
-            // 遍历所有存储的最终点，强制更新红点位置
+            // 遍历所有存储的最终点，强制更新红点位置（只处理玩家角色的激光器）
+            var mainCharacter = CharacterMainControl.Main;
             var keys = new System.Collections.Generic.List<Accessory_Lazer>(finalPoints.Keys);
             foreach (var instance in keys)
             {
                 if (instance == null) continue;
 
+                // 检查是否是玩家角色的激光器
+                var character = characterField?.GetValue(instance) as CharacterMainControl;
+                if (character != mainCharacter)
+                {
+                    // 不是玩家角色，从字典中移除，不再处理
+                    finalPoints.Remove(instance);
+                    continue;
+                }
+
                 if (finalPoints.TryGetValue(instance, out Vector3 finalPoint))
                 {
                     if (hitMarkerField?.GetValue(instance) is GameObject marker)
                     {
-                        // 获取角色用于检查是否在沙袋附近
-                        var character = characterField?.GetValue(instance) as CharacterMainControl;
                         bool hasNearByHalfObsticle = false;
                         
                         try

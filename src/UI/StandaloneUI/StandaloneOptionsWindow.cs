@@ -6,6 +6,7 @@ using FirstPersonCamera.Utilities;
 using System.Collections;
 using System.Collections.Generic;
 using Duckov;
+using FirstPersonCamera;
 
 namespace FirstPersonCamera.StandaloneUI
 {
@@ -195,6 +196,23 @@ namespace FirstPersonCamera.StandaloneUI
             text.fontSize = 28f;
             text.alignment = TextAlignmentOptions.Center;
             text.color = Color.white;
+            
+            // 在标题栏左上角添加版本号显示
+            var versionLabel = new GameObject("VersionLabel");
+            versionLabel.transform.SetParent(titleBar.transform, false);
+            
+            var versionRectTransform = versionLabel.AddComponent<RectTransform>();
+            versionRectTransform.anchorMin = new Vector2(0f, 0f);
+            versionRectTransform.anchorMax = new Vector2(0f, 1f);
+            versionRectTransform.pivot = new Vector2(0f, 0.5f);
+            versionRectTransform.sizeDelta = new Vector2(150f, 0f);
+            versionRectTransform.anchoredPosition = new Vector2(10f, 0f);
+            
+            var versionText = versionLabel.AddComponent<TextMeshProUGUI>();
+            versionText.text = $"版本: {OptionsUIConstants.ModVersion}";
+            versionText.fontSize = 16f;
+            versionText.alignment = TextAlignmentOptions.Left;
+            versionText.color = Color.green; // 使用绿色显示版本号
         }
 
         /// <summary>

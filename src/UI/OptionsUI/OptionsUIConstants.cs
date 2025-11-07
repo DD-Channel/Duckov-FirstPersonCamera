@@ -6,6 +6,14 @@ namespace FirstPersonCamera
     /// </summary>
     public static class OptionsUIConstants
     {
+        #region 版本信息
+        /// <summary>
+        /// 模组版本号
+        /// 更新版本时只需修改此处
+        /// </summary>
+        public const string ModVersion = "1.0.0";
+        #endregion
+
         #region 灵敏度选项键
         /// <summary>
         /// 选项键：鼠标灵敏度（旧版，用于向后兼容）
