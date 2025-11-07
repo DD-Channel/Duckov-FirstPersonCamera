@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace FirstPersonCamera
 {
@@ -162,6 +163,8 @@ namespace FirstPersonCamera
         /// <summary>
         /// 更新相机旋转
         /// 处理鼠标输入、后坐力恢复和偏头旋转
+        /// 修复：在LateUpdate中直接读取鼠标增量，不依赖Update中的捕获，避免输入系统更新时机导致的跳帧
+        /// 关键：不使用Time.deltaTime缩放，因为鼠标增量本身已经是基于输入设备采样率的，直接应用即可
         /// </summary>
         /// <param name="uiBlocking">是否被UI阻挡（UI打开时不响应鼠标输入）</param>
         private void UpdateCameraRotation(bool uiBlocking)
@@ -174,8 +177,34 @@ namespace FirstPersonCamera
             // 处理鼠标输入（仅在UI未阻挡时）
             if (!uiBlocking)
             {
-                float mouseX = pendingMouseX;
-                float mouseY = pendingMouseY;
+                // 在LateUpdate中直接读取鼠标增量，此时输入系统已经更新完毕
+                // 这样可以避免Update中读取时输入系统还未更新，或者Update/LateUpdate调用频率不一致的问题
+                float mouseX = 0f;
+                float mouseY = 0f;
+                
+                try
+                {
+                    if (useNewInputSystem)
+                    {
+                        var mouse = Mouse.current;
+                        if (mouse != null)
+                        {
+                            Vector2 d = mouse.delta.ReadValue();
+                            mouseX = d.x;
+                            mouseY = d.y;
+                        }
+                    }
+                    else
+                    {
+                        mouseX = Input.GetAxis("Mouse X");
+                        mouseY = Input.GetAxis("Mouse Y");
+                    }
+                }
+                catch
+                {
+                    mouseX = 0f;
+                    mouseY = 0f;
+                }
                 
                 // 如果设置了抑制下一帧鼠标增量标志，则清零
                 if (suppressNextMouseDelta)
@@ -247,14 +276,14 @@ namespace FirstPersonCamera
                     }
                 }
                 
-                // 更新yaw和pitch（转换为每秒60帧的增量）
-                yaw += mouseX * currentSensitivityX * Time.unscaledDeltaTime * 60f;
-                pitch -= mouseY * currentSensitivityY * Time.unscaledDeltaTime * 60f;
+                // 更新yaw和pitch
+                // 关键修复：不使用Time.deltaTime或任何时间缩放
+                // 原因：Unity Input System的mouse.delta返回的是基于输入设备采样率的增量值
+                // 这个值已经与实际的物理输入匹配，不需要再乘以deltaTime
+                // 直接应用可以确保在任何帧率下都保持一致的响应，避免高帧率下的跳帧问题
+                yaw += mouseX * currentSensitivityX;
+                pitch -= mouseY * currentSensitivityY;
                 pitch = Mathf.Clamp(pitch, -89f, 89f);
-                
-                // 清零待处理的鼠标增量
-                pendingMouseX = 0f;
-                pendingMouseY = 0f;
             }
             
             // 应用偏头旋转（roll角）

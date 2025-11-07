@@ -12,7 +12,8 @@ namespace FirstPersonCamera
         #region 鼠标输入捕获
         /// <summary>
         /// 捕获鼠标增量（在Update中调用）
-        /// 在LateUpdate中消费，防止1帧延迟导致的峰值
+        /// 每次Update调用时直接赋值（不累加），避免Update多次调用而LateUpdate只调用一次导致的累积跳帧
+        /// 在LateUpdate中消费并清零
         /// </summary>
         /// <param name="uiBlocking">是否被UI阻挡</param>
         private void CaptureMouseDelta(bool uiBlocking)
@@ -50,9 +51,10 @@ namespace FirstPersonCamera
                 my = 0f;
             }
             
-            // 累加鼠标增量（在LateUpdate中消费）
-            pendingMouseX += mx;
-            pendingMouseY += my;
+            // 直接赋值，不累加（每次Update只保存最新值）
+            // 这样可以避免如果Update被多次调用而LateUpdate只调用一次导致的累积跳帧问题
+            pendingMouseX = mx;
+            pendingMouseY = my;
         }
         #endregion
     }

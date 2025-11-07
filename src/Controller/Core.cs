@@ -337,8 +337,9 @@ namespace FirstPersonCamera
 
             if (isFirstPersonMode)
             {
-                // 在Update中捕获鼠标增量，避免在LateUpdate中采样时出现偶发的大增量
-                CaptureMouseDelta(uiBlocking);
+                // 注意：鼠标增量现在在LateUpdate中直接读取，不再在Update中捕获
+                // 这样可以避免Unity Input System更新时机与帧率不同步导致的跳帧问题
+                // CaptureMouseDelta(uiBlocking); // 已移除，改为在LateUpdate中直接读取
                 
                 // 更新偏头输入
                 UpdatePeekInput(uiBlocking);
