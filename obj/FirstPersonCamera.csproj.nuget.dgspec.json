@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\mod\\duckov\\duckov_modding\\FirstPersonCamera\\FirstPersonCamera.csproj": {}
+    "D:\\mod\\FPS\\FirstPersonCamera\\FirstPersonCamera.csproj": {}
   },
   "projects": {
-    "D:\\mod\\duckov\\duckov_modding\\FirstPersonCamera\\FirstPersonCamera.csproj": {
+    "D:\\mod\\FPS\\FirstPersonCamera\\FirstPersonCamera.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\mod\\duckov\\duckov_modding\\FirstPersonCamera\\FirstPersonCamera.csproj",
+        "projectUniqueName": "D:\\mod\\FPS\\FirstPersonCamera\\FirstPersonCamera.csproj",
         "projectName": "FirstPersonCamera",
-        "projectPath": "D:\\mod\\duckov\\duckov_modding\\FirstPersonCamera\\FirstPersonCamera.csproj",
+        "projectPath": "D:\\mod\\FPS\\FirstPersonCamera\\FirstPersonCamera.csproj",
         "packagesPath": "C:\\Users\\Administrator\\.nuget\\packages\\",
-        "outputPath": "D:\\mod\\duckov\\duckov_modding\\FirstPersonCamera\\obj\\",
+        "outputPath": "D:\\mod\\FPS\\FirstPersonCamera\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

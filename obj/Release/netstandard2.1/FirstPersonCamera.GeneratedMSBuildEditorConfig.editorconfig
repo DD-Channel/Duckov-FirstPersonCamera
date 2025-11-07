@@ -1,6 +1,6 @@
 is_global = true
 build_property.RootNamespace = FirstPersonCamera
-build_property.ProjectDir = D:\mod\duckov\duckov_modding\FirstPersonCamera\
+build_property.ProjectDir = D:\mod\FPS\FirstPersonCamera\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.CsWinRTUseWindowsUIXamlProjections = false

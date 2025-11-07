@@ -15,7 +15,7 @@ namespace FirstPersonCamera
         /// <summary>
         /// 每度的像素数（用于计算刻度位置）
         /// </summary>
-        private const float PixelsPerDegree = 4f;
+        private const float PixelsPerDegree = 8f;
         
         /// <summary>
         /// 每个段落的宽度（像素）= 360度 * 每度像素数
@@ -75,12 +75,12 @@ namespace FirstPersonCamera
         /// <summary>
         /// 中等刻度透明度
         /// </summary>
-        private const float MidTickAlpha = 0.6f;
+        private const float MidTickAlpha = 0.8f;
         
         /// <summary>
         /// 次要刻度透明度
         /// </summary>
-        private const float MinorTickAlpha = 0.4f;
+        private const float MinorTickAlpha = 0.8f;
         
         /// <summary>
         /// 主要刻度宽度（像素）
@@ -120,7 +120,7 @@ namespace FirstPersonCamera
         /// <summary>
         /// 标签Y位置偏移（像素）
         /// </summary>
-        private const float LabelYOffset = -24f;
+        private const float LabelYOffset = -32f;
         
         /// <summary>
         /// 标签宽度（像素）
@@ -140,7 +140,17 @@ namespace FirstPersonCamera
         /// <summary>
         /// 标签颜色透明度
         /// </summary>
-        private const float LabelAlpha = 0.9f;
+        private const float LabelAlpha = 0.8f;
+        
+        /// <summary>
+        /// 东西南北方向标签字体大小（放大）
+        /// </summary>
+        private const float CardinalLabelFontSize = 16f;
+        
+        /// <summary>
+        /// 东西南北方向标签颜色（浅红）
+        /// </summary>
+        private static readonly Color CardinalLabelColor = new Color(1f, 0.6f, 0.6f, LabelAlpha);
         
         /// <summary>
         /// 中心标记线宽度（像素）
@@ -479,13 +489,25 @@ namespace FirstPersonCamera
             
             var labelText = labelGO.AddComponent<TextMeshProUGUI>();
             labelText.alignment = TextAlignmentOptions.Top;
-            labelText.color = new Color(1f, 1f, 1f, LabelAlpha);
             labelText.enableWordWrapping = false;
-            labelText.fontSize = LabelFontSize;
             
             // 获取方向标签文本（如果是指向方向则显示中文，否则显示角度）
             string directionLabel = CardinalLabel(degree);
-            labelText.text = string.IsNullOrEmpty(directionLabel) ? $"{degree}\u00B0" : directionLabel;
+            bool isCardinal = !string.IsNullOrEmpty(directionLabel);
+            
+            // 如果是东西南北方向，使用放大字体和浅红色
+            if (isCardinal)
+            {
+                labelText.fontSize = CardinalLabelFontSize;
+                labelText.color = CardinalLabelColor;
+            }
+            else
+            {
+                labelText.fontSize = LabelFontSize;
+                labelText.color = new Color(1f, 1f, 1f, LabelAlpha);
+            }
+            
+            labelText.text = isCardinal ? directionLabel : $"{degree}\u00B0";
             
             // 设置标签RectTransform
             var labelRect = labelText.rectTransform;
@@ -592,18 +614,59 @@ namespace FirstPersonCamera
             float viewportWidth = compassViewport.rect.width;
             float centerOffset = viewportWidth * 0.5f;
 
-            // 计算朝向对应的像素位置
+            // 计算朝向对应的像素位置（0到segmentWidthPx之间）
             float pixelHeading = heading * PixelsPerDegree;
 
             // 计算缝合线偏移（避免缝合线出现在中心）
             float seamBias = segmentWidthPx * SeamBiasFactor;
 
-            // 计算内容位置（使用模运算实现无缝循环）
-            float tilePosition = Mathf.Repeat(pixelHeading + seamBias, segmentWidthPx);
-            float leftPosition = centerOffset - (tilePosition - seamBias) - segmentWidthPx;
+            // 计算内容位置：使得当前朝向的刻度位于视口中心
+            // 内容左边缘应该位于：中心位置 - 当前朝向的像素位置
+            float targetContentLeft = centerOffset - pixelHeading;
+
+            // 使用模运算将内容位置限制在合理范围内，实现无缝循环
+            // 内容位置应该在 -segmentWidthPx 到 0 之间，这样两个段（0和segmentWidthPx）能够覆盖视口
+            float normalizedPosition = Mathf.Repeat(targetContentLeft + segmentWidthPx + seamBias, segmentWidthPx) - seamBias;
+            float contentLeft = normalizedPosition - segmentWidthPx;
 
             // 更新内容位置
-            compassContent.anchoredPosition = new Vector2(leftPosition, 0f);
+            compassContent.anchoredPosition = new Vector2(contentLeft, 0f);
+
+            // 动态调整段的位置，确保无缝循环
+            // 段的位置是相对于内容容器的，所以需要计算段的绝对位置（相对于视口）
+            float segAPos = compassSegA.anchoredPosition.x;
+            float segBPos = compassSegB.anchoredPosition.x;
+            float segAAbsoluteX = contentLeft + segAPos;
+            float segBAbsoluteX = contentLeft + segBPos;
+            
+            // 计算视口边界（扩大范围以确保及时调整）
+            float viewportLeft = -viewportWidth * 0.5f - segmentWidthPx * 0.5f;
+            float viewportRight = viewportWidth * 1.5f + segmentWidthPx * 0.5f;
+            
+            // 如果段A完全移出视口左侧，将其移动到段B的右侧
+            if (segAAbsoluteX + segmentWidthPx < viewportLeft)
+            {
+                compassSegA.anchoredPosition = new Vector2(segBPos + segmentWidthPx, 0f);
+            }
+            // 如果段A完全移出视口右侧，将其移动到段B的左侧
+            else if (segAAbsoluteX > viewportRight)
+            {
+                compassSegA.anchoredPosition = new Vector2(segBPos - segmentWidthPx, 0f);
+            }
+            
+            // 重新计算段B的绝对位置（因为段A可能已经移动）
+            segBAbsoluteX = contentLeft + compassSegB.anchoredPosition.x;
+            
+            // 如果段B完全移出视口左侧，将其移动到段A的右侧
+            if (segBAbsoluteX + segmentWidthPx < viewportLeft)
+            {
+                compassSegB.anchoredPosition = new Vector2(compassSegA.anchoredPosition.x + segmentWidthPx, 0f);
+            }
+            // 如果段B完全移出视口右侧，将其移动到段A的左侧
+            else if (segBAbsoluteX > viewportRight)
+            {
+                compassSegB.anchoredPosition = new Vector2(compassSegA.anchoredPosition.x - segmentWidthPx, 0f);
+            }
         }
         #endregion
     }

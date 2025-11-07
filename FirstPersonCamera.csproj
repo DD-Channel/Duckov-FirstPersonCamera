@@ -22,7 +22,7 @@
           <HintPath>libs\0Harmony.dll</HintPath>
         </Reference>
         <Reference Include="Newtonsoft.Json">
-          <HintPath>..\..\dll\Newtonsoft.Json.dll</HintPath>
+          <HintPath>$(DuckovPath)\Duckov_Data\Managed\Newtonsoft.Json.dll</HintPath>
         </Reference>
   </ItemGroup> 
 </Project>
