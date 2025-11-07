@@ -185,9 +185,71 @@ namespace FirstPersonCamera
                     suppressNextMouseDelta = false;
                 }
                 
+                // 根据当前倍镜倍率选择对应的灵敏度倍数（相对于普通灵敏度）
+                float currentSensitivityX = mouseSensitivityX;
+                float currentSensitivityY = mouseSensitivityY;
+                
+                bool isAiming = IsInAdsState();
+                if (isAiming)
+                {
+                    // 尝试获取当前倍镜信息
+                    float magnification = 0f;
+                    int scopeTypeID = -1;
+                    
+                    try
+                    {
+                        var gun = mainCharacter?.GetGun();
+                        if (gun != null && gun.Item != null)
+                        {
+                            var slot = gun.Item.Slots?.GetSlot("Scope");
+                            if (slot != null && slot.Content != null)
+                            {
+                                scopeTypeID = slot.Content.TypeID;
+                                magnification = GetScopeMagnification(scopeTypeID);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // 获取倍镜信息失败时使用缓存的currentScopeTypeID
+                        if (currentScopeTypeID != -1)
+                        {
+                            magnification = GetScopeMagnification(currentScopeTypeID);
+                        }
+                    }
+                    
+                    // 如果获取到了有效的倍率，应用对应的灵敏度倍数
+                    if (magnification > 0f)
+                    {
+                        float sensitivityMultiplier = 1f;
+                        
+                        // 根据倍率选择对应的灵敏度倍数（同时应用于水平和垂直）
+                        if (Mathf.Approximately(magnification, 1.2f))
+                        {
+                            sensitivityMultiplier = scope1_2xSensitivity;
+                        }
+                        else if (Mathf.Approximately(magnification, 2f))
+                        {
+                            sensitivityMultiplier = scope2xSensitivity;
+                        }
+                        else if (Mathf.Approximately(magnification, 4f))
+                        {
+                            sensitivityMultiplier = scope4xSensitivity;
+                        }
+                        else if (Mathf.Approximately(magnification, 8f))
+                        {
+                            sensitivityMultiplier = scope8xSensitivity;
+                        }
+                        
+                        // 应用倍数到普通灵敏度（分别乘以水平和垂直）
+                        currentSensitivityX = mouseSensitivityX * sensitivityMultiplier;
+                        currentSensitivityY = mouseSensitivityY * sensitivityMultiplier;
+                    }
+                }
+                
                 // 更新yaw和pitch（转换为每秒60帧的增量）
-                yaw += mouseX * mouseSensitivityX * Time.unscaledDeltaTime * 60f;
-                pitch -= mouseY * mouseSensitivityY * Time.unscaledDeltaTime * 60f;
+                yaw += mouseX * currentSensitivityX * Time.unscaledDeltaTime * 60f;
+                pitch -= mouseY * currentSensitivityY * Time.unscaledDeltaTime * 60f;
                 pitch = Mathf.Clamp(pitch, -89f, 89f);
                 
                 // 清零待处理的鼠标增量

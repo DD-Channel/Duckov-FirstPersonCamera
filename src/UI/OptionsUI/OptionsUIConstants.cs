@@ -33,9 +33,48 @@ namespace FirstPersonCamera
         public const float SensitivityMax = 1f;
         
         /// <summary>
+        /// 倍镜灵敏度倍数最小值（相对于普通灵敏度）
+        /// </summary>
+        public const float ScopeSensitivityMultiplierMin = 0.01f;
+        
+        /// <summary>
+        /// 倍镜灵敏度倍数最大值（相对于普通灵敏度，2表示2倍普通灵敏度）
+        /// </summary>
+        public const float ScopeSensitivityMultiplierMax = 2f;
+        
+        /// <summary>
         /// 灵敏度默认值
         /// </summary>
         public const float SensitivityDefault = 0.10f;
+        
+        /// <summary>
+        /// 选项键：1.2x倍镜灵敏度倍数（同时应用于水平和垂直）
+        /// </summary>
+        public const string Scope1_2xSensitivityKey = "FirstPersonCamera_Scope1_2xSensitivity";
+        
+        /// <summary>
+        /// 选项键：2x倍镜灵敏度倍数（同时应用于水平和垂直）
+        /// </summary>
+        public const string Scope2xSensitivityKey = "FirstPersonCamera_Scope2xSensitivity";
+        
+        /// <summary>
+        /// 选项键：4x倍镜灵敏度倍数（同时应用于水平和垂直）
+        /// </summary>
+        public const string Scope4xSensitivityKey = "FirstPersonCamera_Scope4xSensitivity";
+        
+        /// <summary>
+        /// 选项键：8x倍镜灵敏度倍数（同时应用于水平和垂直）
+        /// </summary>
+        public const string Scope8xSensitivityKey = "FirstPersonCamera_Scope8xSensitivity";
+        
+        /// <summary>
+        /// 倍镜灵敏度默认值（相对于普通灵敏度的倍数，基准为1）
+        /// 例如：0.8表示开镜时灵敏度是普通灵敏度的80%
+        /// </summary>
+        public const float Scope1_2xSensitivityDefault = 0.8f;
+        public const float Scope2xSensitivityDefault = 0.6f;
+        public const float Scope4xSensitivityDefault = 0.4f;
+        public const float Scope8xSensitivityDefault = 0.2f;
         #endregion
 
         #region 相机偏移选项键

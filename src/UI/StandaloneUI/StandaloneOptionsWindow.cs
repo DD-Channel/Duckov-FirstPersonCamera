@@ -398,6 +398,17 @@ namespace FirstPersonCamera.StandaloneUI
                 OptionsUIConstants.SensitivityMin, OptionsUIConstants.SensitivityMax, OptionsUIConstants.SensitivityDefault, sliders);
             StandaloneUICreator.CreateSliderRow(tabContent.transform, "垂直灵敏度", OptionsUIConstants.SensitivityYKey,
                 OptionsUIConstants.SensitivityMin, OptionsUIConstants.SensitivityMax, OptionsUIConstants.SensitivityDefault, sliders);
+            
+            // === 倍镜灵敏度倍数设置（相对于普通灵敏度，1.0=100%，0.8=80%，同时应用于水平和垂直） ===
+            StandaloneUICreator.CreateSectionTitle(tabContent.transform, "🔍 倍镜灵敏度倍数");
+            StandaloneUICreator.CreateSliderRow(tabContent.transform, "1.2x倍镜倍数", OptionsUIConstants.Scope1_2xSensitivityKey,
+                OptionsUIConstants.ScopeSensitivityMultiplierMin, OptionsUIConstants.ScopeSensitivityMultiplierMax, OptionsUIConstants.Scope1_2xSensitivityDefault, sliders);
+            StandaloneUICreator.CreateSliderRow(tabContent.transform, "2x倍镜倍数", OptionsUIConstants.Scope2xSensitivityKey,
+                OptionsUIConstants.ScopeSensitivityMultiplierMin, OptionsUIConstants.ScopeSensitivityMultiplierMax, OptionsUIConstants.Scope2xSensitivityDefault, sliders);
+            StandaloneUICreator.CreateSliderRow(tabContent.transform, "4x倍镜倍数", OptionsUIConstants.Scope4xSensitivityKey,
+                OptionsUIConstants.ScopeSensitivityMultiplierMin, OptionsUIConstants.ScopeSensitivityMultiplierMax, OptionsUIConstants.Scope4xSensitivityDefault, sliders);
+            StandaloneUICreator.CreateSliderRow(tabContent.transform, "8x倍镜倍数", OptionsUIConstants.Scope8xSensitivityKey,
+                OptionsUIConstants.ScopeSensitivityMultiplierMin, OptionsUIConstants.ScopeSensitivityMultiplierMax, OptionsUIConstants.Scope8xSensitivityDefault, sliders);
             StandaloneUICreator.CreateDivider(tabContent.transform);
             
             // === 相机设置 ===

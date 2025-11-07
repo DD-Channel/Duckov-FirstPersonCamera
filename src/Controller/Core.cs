@@ -19,6 +19,13 @@ namespace FirstPersonCamera
         [Header("Camera Settings")]
         [SerializeField] private float mouseSensitivityX = 0.10f;
         [SerializeField] private float mouseSensitivityY = 0.10f;
+        
+        // 倍镜灵敏度倍数（相对于普通灵敏度的倍数，基准为1，同时应用于水平和垂直）
+        // 例如：0.8表示开镜时灵敏度是普通灵敏度的80%
+        [SerializeField] private float scope1_2xSensitivity = 0.8f;
+        [SerializeField] private float scope2xSensitivity = 0.6f;
+        [SerializeField] private float scope4xSensitivity = 0.4f;
+        [SerializeField] private float scope8xSensitivity = 0.2f;
         [SerializeField] private float fov = 70f;
         [SerializeField] private float cameraHeightOffset = 0.15f;
         [SerializeField] private float cameraForwardOffset = 0.12f;

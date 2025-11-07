@@ -16,6 +16,10 @@ namespace FirstPersonCamera
         private const string SensitivityLegacyKey = OptionsUIConstants.SensitivityLegacyKey;
         private const string SensitivityXKey = OptionsUIConstants.SensitivityXKey;
         private const string SensitivityYKey = OptionsUIConstants.SensitivityYKey;
+        private const string Scope1_2xSensitivityKey = OptionsUIConstants.Scope1_2xSensitivityKey;
+        private const string Scope2xSensitivityKey = OptionsUIConstants.Scope2xSensitivityKey;
+        private const string Scope4xSensitivityKey = OptionsUIConstants.Scope4xSensitivityKey;
+        private const string Scope8xSensitivityKey = OptionsUIConstants.Scope8xSensitivityKey;
         private const string OffsetHeightKey = OptionsUIConstants.OffsetHeightKey;
         private const string OffsetForwardKey = OptionsUIConstants.OffsetForwardKey;
         private const string OffsetRightKey = OptionsUIConstants.OffsetRightKey;
@@ -60,6 +64,12 @@ namespace FirstPersonCamera
         private const float DefaultSensitivity = OptionsUIConstants.SensitivityDefault;
         private const float SensitivityMin = OptionsUIConstants.SensitivityMin;
         private const float SensitivityMax = OptionsUIConstants.SensitivityMax;
+        private const float ScopeSensitivityMultiplierMin = OptionsUIConstants.ScopeSensitivityMultiplierMin;
+        private const float ScopeSensitivityMultiplierMax = OptionsUIConstants.ScopeSensitivityMultiplierMax;
+        private const float DefaultScope1_2xSensitivity = OptionsUIConstants.Scope1_2xSensitivityDefault;
+        private const float DefaultScope2xSensitivity = OptionsUIConstants.Scope2xSensitivityDefault;
+        private const float DefaultScope4xSensitivity = OptionsUIConstants.Scope4xSensitivityDefault;
+        private const float DefaultScope8xSensitivity = OptionsUIConstants.Scope8xSensitivityDefault;
         private const float DefaultOffsetHeight = OptionsUIConstants.OffsetHeightDefault;
         private const float DefaultOffsetForward = OptionsUIConstants.OffsetForwardDefault;
         private const float DefaultOffsetRight = OptionsUIConstants.OffsetRightDefault;
@@ -105,7 +115,9 @@ namespace FirstPersonCamera
         private void OnOptionsChanged(string key)
         {
             // 处理鼠标灵敏度选项
-            if (key == SensitivityLegacyKey || key == SensitivityXKey || key == SensitivityYKey)
+            if (key == SensitivityLegacyKey || key == SensitivityXKey || key == SensitivityYKey || 
+                key == Scope1_2xSensitivityKey || key == Scope2xSensitivityKey ||
+                key == Scope4xSensitivityKey || key == Scope8xSensitivityKey)
             {
                 LoadSensitivityFromOptions();
             }
@@ -282,6 +294,22 @@ namespace FirstPersonCamera
             // 限制在合理范围内
             mouseSensitivityX = OptionsHelper.LoadFloatClamped(SensitivityXKey, sensitivityX, SensitivityMin, SensitivityMax);
             mouseSensitivityY = OptionsHelper.LoadFloatClamped(SensitivityYKey, sensitivityY, SensitivityMin, SensitivityMax);
+            
+            // 加载1.2x倍镜灵敏度倍数（同时应用于水平和垂直）
+            float scope1_2x = OptionsHelper.LoadFloat(Scope1_2xSensitivityKey, DefaultScope1_2xSensitivity);
+            scope1_2xSensitivity = OptionsHelper.LoadFloatClamped(Scope1_2xSensitivityKey, scope1_2x, ScopeSensitivityMultiplierMin, ScopeSensitivityMultiplierMax);
+            
+            // 加载2x倍镜灵敏度倍数
+            float scope2x = OptionsHelper.LoadFloat(Scope2xSensitivityKey, DefaultScope2xSensitivity);
+            scope2xSensitivity = OptionsHelper.LoadFloatClamped(Scope2xSensitivityKey, scope2x, ScopeSensitivityMultiplierMin, ScopeSensitivityMultiplierMax);
+            
+            // 加载4x倍镜灵敏度倍数
+            float scope4x = OptionsHelper.LoadFloat(Scope4xSensitivityKey, DefaultScope4xSensitivity);
+            scope4xSensitivity = OptionsHelper.LoadFloatClamped(Scope4xSensitivityKey, scope4x, ScopeSensitivityMultiplierMin, ScopeSensitivityMultiplierMax);
+            
+            // 加载8x倍镜灵敏度倍数
+            float scope8x = OptionsHelper.LoadFloat(Scope8xSensitivityKey, DefaultScope8xSensitivity);
+            scope8xSensitivity = OptionsHelper.LoadFloatClamped(Scope8xSensitivityKey, scope8x, ScopeSensitivityMultiplierMin, ScopeSensitivityMultiplierMax);
         }
 
         /// <summary>
