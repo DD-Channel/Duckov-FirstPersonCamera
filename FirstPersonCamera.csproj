@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>FirstPersonCamera</AssemblyName>
+    <RootNamespace>FirstPersonCamera</RootNamespace>
+    <!-- Disable default compile items to only include files from src/ directory -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- This should be the folder that contains Duckov.exe -->
+    <!-- 下面这行里填写你的鸭科夫安装路径，这样编译器就能找到相关的dll文件 -->
+    <DuckovPath>D:\software\steam\steamapps\common\Escape from Duckov</DuckovPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Include all source files from src/ directory -->
+    <Compile Include="src\**\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\TeamSoda.*" />
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\ItemStatsSystem.dll" />
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Unity*" />
+        <Reference Include="$(DuckovPath)\Duckov_Data\Managed\Cinemachine.dll" />
+        <Reference Include="0Harmony">
+          <HintPath>libs\0Harmony.dll</HintPath>
+        </Reference>
+        <Reference Include="Newtonsoft.Json">
+          <HintPath>..\..\dll\Newtonsoft.Json.dll</HintPath>
+        </Reference>
+  </ItemGroup> 
+</Project>
+
