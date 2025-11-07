@@ -27,6 +27,9 @@ namespace FirstPersonCamera.StandaloneUI.Tabs
             
             // 激光开关键
             StandaloneUICreator.CreateKeybindRow(parent, "激光开关", OptionsUIConstants.LaserToggleKeyCodeKey, KeyCode.None, keybindButtons);
+            
+            // 武器检视键
+            StandaloneUICreator.CreateKeybindRow(parent, "武器检视", OptionsUIConstants.WeaponInspectKeyCodeKey, KeyCode.H, keybindButtons);
         }
     }
 }

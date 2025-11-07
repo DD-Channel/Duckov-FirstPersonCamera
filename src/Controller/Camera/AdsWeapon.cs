@@ -232,6 +232,12 @@ namespace FirstPersonCamera
         {
             if (mainCharacter == null || mainCamera == null) return;
             
+            // 如果正在检视武器，不更新ADS位置（让检视动画控制武器位置）
+            if (isInspectingWeapon)
+            {
+                return;
+            }
+            
             var gun = mainCharacter.GetGun();
             if (gun == null)
             {

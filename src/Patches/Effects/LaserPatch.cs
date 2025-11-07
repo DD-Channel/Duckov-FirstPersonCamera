@@ -100,6 +100,19 @@ namespace FirstPersonCamera
                 return true;
             }
 
+            // 如果正在检视武器，禁用激光
+            if (controller.IsInspectingWeapon)
+            {
+                var lineRendererForInspect = lineRendererField?.GetValue(__instance) as LineRenderer;
+                if (lineRendererForInspect != null)
+                {
+                    lineRendererForInspect.enabled = false;
+                }
+                HideHitMarker(__instance);
+                finalPoints.Remove(__instance);
+                return false; // 跳过原更新
+            }
+            
             // 检测激光开关快捷键
             CheckLaserToggleKey();
             
@@ -598,6 +611,22 @@ namespace FirstPersonCamera
             }
             // 恢复原版的localPoints（如果需要的话，让原版逻辑可以正常工作）
             // 注意：这里不清空，让原版逻辑自己初始化
+        }
+        
+        /// <summary>
+        /// 获取激光是否启用（公共方法，供外部调用）
+        /// </summary>
+        public static bool GetLaserEnabled()
+        {
+            return isLaserEnabled;
+        }
+        
+        /// <summary>
+        /// 设置激光是否启用（公共方法，供外部调用）
+        /// </summary>
+        public static void SetLaserEnabled(bool enabled)
+        {
+            isLaserEnabled = enabled;
         }
     }
 }

@@ -344,6 +344,9 @@ namespace FirstPersonCamera
                 // 更新偏头输入
                 UpdatePeekInput(uiBlocking);
                 
+                // 检测武器检视按键
+                UpdateWeaponInspectInput(uiBlocking);
+                
                 // 检测鼠标左键状态，判断是否停止射击
                 bool mousePressed = false;
                 try
@@ -598,6 +601,9 @@ namespace FirstPersonCamera
         /// </summary>
         private void DisableFirstPerson()
         {
+            // 停止武器检视（如果正在检视）
+            try { StopWeaponInspect(); } catch { }
+            
             if (cinemachineVCam != null) cinemachineVCam.enabled = true;
             if (cameraArm != null) cameraArm.enabled = true;
             if (cinemachineBrain != null) cinemachineBrain.enabled = true;
