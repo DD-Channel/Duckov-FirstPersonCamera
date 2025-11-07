@@ -277,12 +277,28 @@ namespace FirstPersonCamera
                 }
                 
                 // 更新yaw和pitch
-                // 关键修复：不使用Time.deltaTime或任何时间缩放
-                // 原因：Unity Input System的mouse.delta返回的是基于输入设备采样率的增量值
-                // 这个值已经与实际的物理输入匹配，不需要再乘以deltaTime
-                // 直接应用可以确保在任何帧率下都保持一致的响应，避免高帧率下的跳帧问题
-                yaw += mouseX * currentSensitivityX;
-                pitch -= mouseY * currentSensitivityY;
+                // 关键修复：限制每帧最大旋转量，防止高帧率下的跳帧问题
+                // 原因：Unity Input System的mouse.delta在某些情况下可能会累积，特别是在高帧率下
+                // 通过限制每帧最大旋转量，可以防止突然的大幅跳跃，同时不影响后坐力系统
+                // 后坐力系统使用Time.unscaledDeltaTime进行恢复，不应该受到鼠标输入缩放的影响
+                // 注意：不使用时间缩放，因为这会影响到后坐力恢复系统的一致性
+                float maxRotationPerFrame = 10f; // 每帧最大旋转角度（度），防止跳帧（足够大以保持响应性）
+                float deltaYaw = mouseX * currentSensitivityX;
+                float deltaPitch = mouseY * currentSensitivityY;
+                
+                // 限制每帧最大旋转量（防止异常大的delta值导致的跳帧）
+                // 这个限制足够大，不会影响正常使用，但可以防止异常情况
+                if (Mathf.Abs(deltaYaw) > maxRotationPerFrame)
+                {
+                    deltaYaw = Mathf.Sign(deltaYaw) * maxRotationPerFrame;
+                }
+                if (Mathf.Abs(deltaPitch) > maxRotationPerFrame)
+                {
+                    deltaPitch = Mathf.Sign(deltaPitch) * maxRotationPerFrame;
+                }
+                
+                yaw += deltaYaw;
+                pitch -= deltaPitch;
                 pitch = Mathf.Clamp(pitch, -89f, 89f);
             }
             
