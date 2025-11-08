@@ -139,29 +139,7 @@ namespace FirstPersonCamera
             var character = characterField?.GetValue(__instance) as CharacterMainControl;
             if (character == null)
             {
-                // 尝试从parentAgent获取
-                var parentAgentField = AccessTools.Field(typeof(Accessory_Lazer), "parentAgent");
-                if (parentAgentField != null)
-                {
-                    var parentAgent = parentAgentField.GetValue(__instance);
-                    if (parentAgent != null)
-                    {
-                        var holderProperty = AccessTools.Property(parentAgent.GetType(), "Holder");
-                        if (holderProperty != null)
-                        {
-                            character = holderProperty.GetValue(parentAgent) as CharacterMainControl;
-                            if (character != null)
-                            {
-                                characterField?.SetValue(__instance, character);
-                            }
-                        }
-                    }
-                }
-                
-                if (character == null)
-                {
-                    return true; // 角色不存在，走原版逻辑
-                }
+                return true; // 角色不存在，走原版逻辑
             }
 
             // 关键修复：只对玩家角色的激光器应用第一人称逻辑

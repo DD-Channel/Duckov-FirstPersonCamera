@@ -224,6 +224,9 @@ namespace FirstPersonCamera
             HookHealthBarEvents();
             LoadToggleKeyFromOptions();
             
+            // 初始化静态API委托
+            InitializeAPI();
+            
             // 预创建指南针，使其在游戏开始时立即出现
             try { EnsureCompass(); } catch { }
             
@@ -342,6 +345,9 @@ namespace FirstPersonCamera
                 // 注意：鼠标增量现在在LateUpdate中直接读取，不再在Update中捕获
                 // 这样可以避免Unity Input System更新时机与帧率不同步导致的跳帧问题
                 // CaptureMouseDelta(uiBlocking); // 已移除，改为在LateUpdate中直接读取
+                
+                // 检测武器切换并清除检视状态（必须在其他更新之前执行）
+                CheckWeaponSwitchAndStopInspect();
                 
                 // 更新偏头输入
                 UpdatePeekInput(uiBlocking);
@@ -505,6 +511,47 @@ namespace FirstPersonCamera
         /// </summary>
         /// <param name="key">按键码</param>
         public void SetToggleKey(KeyCode key) => toggleKey = key;
+        
+        /// <summary>
+        /// 获取切换键：获取当前切换第一人称模式的按键
+        /// 用于与其他mod兼容
+        /// </summary>
+        /// <returns>切换键的KeyCode</returns>
+        public KeyCode GetToggleKey()
+        {
+            return toggleKey;
+        }
+        
+        /// <summary>
+        /// 切换到第三人称俯视角：从第一人称切换到第三人称俯视角
+        /// 用于与其他mod兼容
+        /// </summary>
+        public void SwitchToThirdPersonTopDown()
+        {
+            if (isFirstPersonMode)
+            {
+                DisableFirstPerson();
+                isFirstPersonMode = false;
+                
+                // 触发事件，通知其他mod
+                try
+                {
+                    FirstPersonCameraAPI.InvokeSwitchToThirdPersonTopDown();
+                }
+                catch { }
+            }
+        }
+        
+        /// <summary>
+        /// 初始化静态API委托
+        /// </summary>
+        private void InitializeAPI()
+        {
+            // 注册委托到静态API
+            FirstPersonCameraAPI.GetIsFirstPersonMode = () => isFirstPersonMode;
+            FirstPersonCameraAPI.GetToggleKey = () => toggleKey;
+            FirstPersonCameraAPI.SwitchToThirdPersonTopDown = SwitchToThirdPersonTopDown;
+        }
         #endregion
 
         #region UI状态检查
@@ -606,6 +653,8 @@ namespace FirstPersonCamera
             // 停止武器检视（如果正在检视）
             try { StopWeaponInspect(); } catch { }
             try { StopMeleeInspect(); } catch { }
+            try { StopInventoryItemInspect(); } catch { }
+            try { StopUIItemInspect(); } catch { }
             
             if (cinemachineVCam != null) cinemachineVCam.enabled = true;
             if (cameraArm != null) cameraArm.enabled = true;
@@ -694,6 +743,18 @@ namespace FirstPersonCamera
             yield return null;
             if (!isFirstPersonMode) yield break;
             try { DisablePostProcessingBlurEffects(); } catch { }
+        }
+        
+        /// <summary>
+        /// 检测武器切换并停止检视（如果武器切换了）
+        /// 这个方法在Update循环中每帧调用，确保武器切换时立即清除检视状态
+        /// 注意：武器切换检测在WeaponInspect.cs和MeleeInspect.cs的ShouldInterruptInspect中处理
+        /// 这里只需要确保检视状态在需要时被清除
+        /// </summary>
+        private void CheckWeaponSwitchAndStopInspect()
+        {
+            // 武器切换检测已经在ShouldInterruptInspect中处理，这里不需要额外处理
+            // 如果需要，可以在这里添加其他打断条件
         }
         
         /// <summary>

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using FirstPersonCamera.OptionsUI;
 
 namespace FirstPersonCamera.StandaloneUI.Tabs
 {

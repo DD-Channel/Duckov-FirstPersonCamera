@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -94,12 +94,12 @@ namespace FirstPersonCamera
         private const string OptionKeyHideFaceWings = "FirstPersonCamera_HideFaceWings";
         
         /// <summary>
-        /// 选项键：强制显示手持武器（即使隐藏手部）
+        /// 选项键：强制显示手持武器（即使隐藏了手部）
         /// </summary>
         private const string OptionKeyForceShowHeldWeapon = "FirstPersonCamera_ForceShowHeldWeapon";
         
         /// <summary>
-        /// 反射属性名：PartInstance（用于访问面部部件的实例）
+        /// 反射属性名：PartInstance（用于访问面部部件实例）
         /// </summary>
         private const string ReflectionPropertyNamePartInstance = "PartInstance";
         
@@ -283,24 +283,18 @@ namespace FirstPersonCamera
                     // 收集需要排除的武器Socket下的渲染器（用于保留武器显示）
                     var weaponRenderers = new HashSet<Renderer>();
                     
-                    // 收集右手Socket下的MeshRenderer（武器）
+                    // 收集右手Socket下的所有Renderer（武器及其附件）
                     if (characterModel.RightHandSocket != null)
                     {
-                        var rightHandMeshRenderers = characterModel.RightHandSocket.GetComponentsInChildren<MeshRenderer>(true);
-                        foreach (var mr in rightHandMeshRenderers)
-                        {
-                            weaponRenderers.Add(mr);
-                        }
+                        var rightHandRenderers = characterModel.RightHandSocket.GetComponentsInChildren<Renderer>(true);
+                        foreach (var r in rightHandRenderers) weaponRenderers.Add(r);
                     }
                     
-                    // 收集左手Socket下的MeshRenderer（武器）
+                    // 收集左手Socket下的所有Renderer（武器及其附件）
                     if (characterModel.LefthandSocket != null)
                     {
-                        var leftHandMeshRenderers = characterModel.LefthandSocket.GetComponentsInChildren<MeshRenderer>(true);
-                        foreach (var mr in leftHandMeshRenderers)
-                        {
-                            weaponRenderers.Add(mr);
-                        }
+                        var leftHandRenderers = characterModel.LefthandSocket.GetComponentsInChildren<Renderer>(true);
+                        foreach (var r in leftHandRenderers) weaponRenderers.Add(r);
                     }
 
                     // 根据设置隐藏身体部位渲染器
@@ -314,7 +308,7 @@ namespace FirstPersonCamera
                                 continue;
                             }
 
-                            // 跳过LineRenderer（激光），不要隐藏激光
+                            // 跳过LineRenderer（激光），不隐藏激光
                             if (renderer is LineRenderer)
                             {
                                 continue;
@@ -326,19 +320,19 @@ namespace FirstPersonCamera
                             // 如果设置了隐藏手部，检查是否是手部渲染器
                             if ((hideSettings.leftHand || hideSettings.rightHand))
                             {
-                                // 检查渲染器是否在手部Socket下
+                                // 检查渲染器是否在手部Socket中
                                 if (characterModel.LefthandSocket != null && 
                                     renderer.transform.IsChildOf(characterModel.LefthandSocket))
                                 {
                                     // 但如果是MeshRenderer（武器），不隐藏
-                                    // 武器渲染器已在前面排除，直接隐藏
+                                    // 武器渲染器已在前面的排除，直接隐藏
                                     shouldHide = true;
                                 }
                                 else if (characterModel.RightHandSocket != null && 
                                          renderer.transform.IsChildOf(characterModel.RightHandSocket))
                                 {
                                     // 但如果是MeshRenderer（武器），不隐藏
-                                    // 武器渲染器已在前面排除，直接隐藏
+                                    // 武器渲染器已在前面的排除，直接隐藏
                                     shouldHide = true;
                                 }
                             }
@@ -351,8 +345,8 @@ namespace FirstPersonCamera
                                 if (characterModel.HelmatSocket != null && 
                                     renderer.transform.IsChildOf(characterModel.HelmatSocket))
                                 {
-                                    // 但如果是装备（MeshRenderer），不隐藏（装备已在上面处理）
-                                    // 装备已在上面处理过（并且武器已排除），这里直接隐藏
+                                    // 但如果是装备（MeshRenderer），不隐藏（装备已在上面的处理）
+                                    // 装备已在上面的处理过（并且武器已排除），这里直接隐藏
                                     shouldHide = true;
                                 }
                             }
@@ -361,7 +355,7 @@ namespace FirstPersonCamera
                             // 激进策略仅在隐藏手部时生效：如果设置了隐藏手部，就隐藏所有非装备的身体渲染器
                             if (!shouldHide && (hideSettings.leftHand || hideSettings.rightHand))
                             {
-                                // 检查渲染器是否在任何Socket下（如果在Socket下，说明是装备，已经处理过）
+                                // 检查渲染器是否在任意Socket下（如果在Socket下，说明是装备，已经处理过）
                                 bool isInSocket = false;
                                 if (characterModel.HelmatSocket != null && renderer.transform.IsChildOf(characterModel.HelmatSocket)) isInSocket = true;
                                 if (characterModel.FaceMaskSocket != null && renderer.transform.IsChildOf(characterModel.FaceMaskSocket)) isInSocket = true;
@@ -369,15 +363,15 @@ namespace FirstPersonCamera
                                 if (characterModel.BackpackSocket != null && renderer.transform.IsChildOf(characterModel.BackpackSocket)) isInSocket = true;
                                 if (characterModel.MeleeWeaponSocket != null && renderer.transform.IsChildOf(characterModel.MeleeWeaponSocket)) isInSocket = true;
                                 
-                                // 如果不在Socket下，则隐藏（这是身体本体，武器已在上面排除）
+                                // 如果不在Socket下，则隐藏（这是身体本体，武器已在上面的排除）
                                 if (!isInSocket && !(renderer is MeshRenderer))
                                 {
                                     shouldHide = true;
                                 }
                             }
 
-                            // 额外处理：有些身体使用MeshRenderer而非SkinnedMeshRenderer，
-                            // 如果设置了隐藏手，且该渲染器不在任何装备Socket下，也应隐藏。
+                            // 额外处理：有些身体使用MeshRenderer而非SkinnedMeshRenderer
+                            // 如果设置了隐藏手部，且该渲染器不在任何装备Socket下，也应隐藏。
                             if (!shouldHide && (hideSettings.leftHand || hideSettings.rightHand))
                             {
                                 bool isInSocket2 = false;
@@ -408,95 +402,10 @@ namespace FirstPersonCamera
                 try
                 {
                     // 后备方案：隐藏角色模型根Transform下的所有渲染器，但排除武器Socket
-                    HideRenderersInCharacterModelRoot(hideSettings);
                 }
                 catch
                 {
                     // 后备方案也失败，静默处理
-                }
-            }
-        }
-
-        /// <summary>
-        /// 后备方案：隐藏角色模型根Transform下的所有渲染器（除了武器）
-        /// </summary>
-        /// <param name="hideSettings">隐藏选项设置</param>
-        private void HideRenderersInCharacterModelRoot((bool helmet, bool faceMask, bool armor, bool face, bool hair,
-                                                         bool backpack, bool melee, bool leftHand, bool rightHand,
-                                                         bool headset, bool faceEyes, bool faceEyebrows, bool faceMouth,
-                                                         bool faceTail, bool faceFeet, bool faceWings) hideSettings)
-        {
-            if (characterModel == null || characterModel.transform == null) return;
-
-            // 收集武器Socket下的所有渲染器（用于排除）
-            var weaponRenderers = new HashSet<Renderer>();
-            
-            if (characterModel.RightHandSocket != null)
-            {
-                var renderers = characterModel.RightHandSocket.GetComponentsInChildren<Renderer>(true);
-                foreach (var r in renderers)
-                {
-                    if (r is MeshRenderer) // 只排除MeshRenderer（武器）
-                    {
-                        weaponRenderers.Add(r);
-                    }
-                }
-            }
-            
-            if (characterModel.LefthandSocket != null)
-            {
-                var renderers = characterModel.LefthandSocket.GetComponentsInChildren<Renderer>(true);
-                foreach (var r in renderers)
-                {
-                    if (r is MeshRenderer) // 只排除MeshRenderer（武器）
-                    {
-                        weaponRenderers.Add(r);
-                    }
-                }
-            }
-
-            // 获取角色模型根Transform下的所有渲染器
-            var allRenderers = characterModel.transform.GetComponentsInChildren<Renderer>(true);
-            
-            foreach (var renderer in allRenderers)
-            {
-                if (renderer == null || !renderer.enabled) continue;
-                
-                // 跳过武器渲染器
-                if (weaponRenderers.Contains(renderer)) continue;
-                
-                // 跳过LineRenderer（激光），不要隐藏激光
-                if (renderer is LineRenderer) continue;
-                
-                // 跳过已经在Socket下的渲染器（装备已在上面处理）
-                bool isInSocket = false;
-                if (characterModel.HelmatSocket != null && renderer.transform.IsChildOf(characterModel.HelmatSocket)) isInSocket = true;
-                if (characterModel.FaceMaskSocket != null && renderer.transform.IsChildOf(characterModel.FaceMaskSocket)) isInSocket = true;
-                if (characterModel.ArmorSocket != null && renderer.transform.IsChildOf(characterModel.ArmorSocket)) isInSocket = true;
-                if (characterModel.BackpackSocket != null && renderer.transform.IsChildOf(characterModel.BackpackSocket)) isInSocket = true;
-                if (characterModel.MeleeWeaponSocket != null && renderer.transform.IsChildOf(characterModel.MeleeWeaponSocket)) isInSocket = true;
-                if (characterModel.RightHandSocket != null && renderer.transform.IsChildOf(characterModel.RightHandSocket))
-                {
-                    // 右手Socket下的MeshRenderer是武器，不隐藏
-                    if (renderer is MeshRenderer) continue;
-                    isInSocket = true;
-                }
-                if (characterModel.LefthandSocket != null && renderer.transform.IsChildOf(characterModel.LefthandSocket))
-                {
-                    // 左手Socket下的MeshRenderer是武器，不隐藏
-                    if (renderer is MeshRenderer) continue;
-                    isInSocket = true;
-                }
-                
-                // 如果不在Socket下，且设置了隐藏身体部位，则隐藏
-                if (!isInSocket && (hideSettings.leftHand || hideSettings.rightHand || hideSettings.face))
-                {
-                    // 只隐藏SkinnedMeshRenderer（身体部位），不隐藏MeshRenderer（可能是其他物体）
-                    if (renderer is SkinnedMeshRenderer)
-                    {
-                        renderer.enabled = false;
-                        hiddenRenderers.Add(renderer);
-                    }
                 }
             }
         }
@@ -737,7 +646,7 @@ namespace FirstPersonCamera
             {
                 if (renderer != null && renderer.enabled)
                 {
-                    // 跳过LineRenderer（激光），不要隐藏激光
+                    // 跳过LineRenderer（激光），不隐藏激光
                     if (renderer is LineRenderer)
                     {
                         continue;
@@ -751,7 +660,7 @@ namespace FirstPersonCamera
 
         /// <summary>
         /// 确保手持武器网格可见（即使隐藏了手部）
-        /// 强制显示非蒙皮网格渲染器，用于显示武器模型
+        /// 强制显示非蒙皮的网格渲染器，用于显示武器模型
         /// </summary>
         private void EnsureWeaponMeshesVisible()
         {
@@ -787,6 +696,7 @@ namespace FirstPersonCamera
         {
             if (parent == null) return;
 
+            // 先启用普通MeshRenderer
             var meshRenderers = parent.GetComponentsInChildren<MeshRenderer>(true);
             foreach (var meshRenderer in meshRenderers)
             {
@@ -794,6 +704,16 @@ namespace FirstPersonCamera
                 {
                     meshRenderer.enabled = true;
                     // 注意：不添加到hiddenRenderers列表，因为我们希望它持续显示
+                }
+            }
+
+            // 再启用SkinnedMeshRenderer（部分武器附件可能使用）
+            var skinnedRenderers = parent.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            foreach (var skinned in skinnedRenderers)
+            {
+                if (skinned != null && !skinned.enabled)
+                {
+                    skinned.enabled = true;
                 }
             }
         }
@@ -816,7 +736,7 @@ namespace FirstPersonCamera
         #region 恢复遮挡物方法
         /// <summary>
         /// 恢复第一人称模式下隐藏的遮挡物
-        /// 恢复所有被隐藏的渲染器，并强制显示装备插槽以处理会话中更换装备的情况
+        /// 恢复所有被隐藏的渲染器，并强制显示装备插槽以处理对话中更换装备的情况
         /// </summary>
         private void RestoreFirstPersonObstructions()
         {
@@ -831,13 +751,13 @@ namespace FirstPersonCamera
                 hiddenRenderers.Clear();
             }
 
-            // 额外强制显示装备插槽，以处理会话中更换装备的情况
+            // 额外强制显示装备插槽，以处理对话中更换装备的情况
             ForceShowEquipmentRenderers();
         }
 
         /// <summary>
         /// 强制显示所有装备插槽的渲染器
-        /// 用于处理在会话中更换装备的情况，确保所有装备都能正确显示
+        /// 用于处理在对话中更换装备的情况，确保所有装备都能正确显示
         /// </summary>
         private void ForceShowEquipmentRenderers()
         {

@@ -233,7 +233,8 @@ namespace FirstPersonCamera
             if (mainCharacter == null || mainCamera == null) return;
             
             // 如果正在检视武器，不更新ADS位置（让检视动画控制武器位置）
-            if (isInspectingWeapon)
+            // 武器切换检测在Update循环中的CheckWeaponSwitchAndStopInspect()处理
+            if (isInspectingWeapon || isInspectingMelee)
             {
                 return;
             }

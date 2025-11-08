@@ -212,10 +212,8 @@ namespace FirstPersonCamera
         {
             try
             {
-                // 优先使用统一的检视键，如果没有则使用旧的武器检视键（向后兼容）
                 inspectKey = OptionsHelper.LoadKeyCode(
-                    OptionsUIConstants.InspectKeyCodeKey, 
-                    OptionsHelper.LoadKeyCode(OptionsUIConstants.WeaponInspectKeyCodeKey, KeyCode.H));
+                    OptionsUIConstants.WeaponInspectKeyCodeKey, KeyCode.H);
             }
             catch
             {

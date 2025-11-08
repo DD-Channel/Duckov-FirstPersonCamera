@@ -366,7 +366,7 @@ namespace FirstPersonCamera
         /// 检查是否在瞄准状态（ADS）
         /// </summary>
         /// <returns>如果在ADS状态则返回true，否则返回false</returns>
-        private bool IsInAdsState()
+        public bool IsInAdsState()
         {
             return SafeExecution.Execute(() =>
             {

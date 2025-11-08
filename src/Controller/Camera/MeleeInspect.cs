@@ -15,6 +15,10 @@ namespace FirstPersonCamera
         #region 近战检视字段
         private bool isInspectingMelee = false;
         private Coroutine meleeInspectCoroutine;
+        /// <summary>
+        /// 当前正在检视的近战武器引用（用于检测武器切换）
+        /// </summary>
+        private ItemAgent_MeleeWeapon inspectingMelee;
         private Vector3 meleeOriginalLocalPos;
         private Quaternion meleeOriginalLocalRot;
 
@@ -86,6 +90,7 @@ namespace FirstPersonCamera
             }
 
             isInspectingMelee = true;
+            inspectingMelee = melee; // 保存当前检视的武器引用
             meleeInspectCoroutine = StartCoroutine(MeleeInspectCoroutine(melee));
         }
 
@@ -101,6 +106,7 @@ namespace FirstPersonCamera
 
             RestoreMeleeFromInspect();
             isInspectingMelee = false;
+            inspectingMelee = null; // 清除武器引用
         }
 
         /// <summary>
@@ -207,7 +213,7 @@ namespace FirstPersonCamera
 
             while (elapsed < meleeTransitionDuration)
             {
-                if (ShouldInterruptMeleeInspect()) { RestoreMeleeFromInspect(); isInspectingMelee = false; yield break; }
+                if (ShouldInterruptMeleeInspect()) { RestoreMeleeFromInspect(); isInspectingMelee = false; inspectingMelee = null; yield break; }
                 yield return _waitEndOfFrame;
 
                 Vector3 camPos = mainCamera.transform.position;
@@ -248,7 +254,7 @@ namespace FirstPersonCamera
                 elapsed = 0f;
                 while (elapsed < meleeHoldDuration)
                 {
-                    if (ShouldInterruptMeleeInspect()) { RestoreMeleeFromInspect(); isInspectingMelee = false; yield break; }
+                    if (ShouldInterruptMeleeInspect()) { RestoreMeleeFromInspect(); isInspectingMelee = false; inspectingMelee = null; yield break; }
                     yield return _waitEndOfFrame;
 
                     Vector3 camPos = mainCamera.transform.position;
@@ -284,7 +290,7 @@ namespace FirstPersonCamera
                     elapsed = 0f;
                     while (elapsed < meleeTransitionDuration)
                     {
-                        if (ShouldInterruptMeleeInspect()) { RestoreMeleeFromInspect(); isInspectingMelee = false; yield break; }
+                        if (ShouldInterruptMeleeInspect()) { RestoreMeleeFromInspect(); isInspectingMelee = false; inspectingMelee = null; yield break; }
                         yield return _waitEndOfFrame;
 
                         Vector3 camPos = mainCamera.transform.position;
@@ -329,7 +335,7 @@ namespace FirstPersonCamera
             Quaternion restoreStartRot = tf.localRotation;
             while (elapsed < meleeRestoreDuration)
             {
-                if (ShouldInterruptMeleeInspect()) { RestoreMeleeFromInspect(); isInspectingMelee = false; yield break; }
+                if (ShouldInterruptMeleeInspect()) { RestoreMeleeFromInspect(); isInspectingMelee = false; inspectingMelee = null; yield break; }
                 yield return _waitEndOfFrame;
 
                 float t = elapsed / meleeRestoreDuration;
@@ -354,6 +360,7 @@ namespace FirstPersonCamera
             RestoreMeleeFromInspect();
             isInspectingMelee = false;
             meleeInspectCoroutine = null;
+            inspectingMelee = null; // 清除武器引用
         }
         #endregion
 
@@ -376,9 +383,12 @@ namespace FirstPersonCamera
             // 切出第一人称
             if (!isFirstPersonMode) return true;
 
-            // 手上近战消失
+            // 手上近战消失或切换了
             var melee = mainCharacter.GetMeleeWeapon();
             if (melee == null || melee.transform == null) return true;
+            
+            // 检查武器是否切换了（通过比较武器对象引用）
+            if (inspectingMelee != null && inspectingMelee != melee) return true;
 
             // 跑步打断（只看Shift键）
             try

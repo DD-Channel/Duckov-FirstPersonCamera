@@ -11,7 +11,7 @@ namespace FirstPersonCamera
         /// 模组版本号
         /// 更新版本时只需修改此处
         /// </summary>
-        public const string ModVersion = "1.0.0";
+        public const string ModVersion = "1.1.0";
         #endregion
 
         #region 灵敏度选项键
@@ -275,6 +275,66 @@ namespace FirstPersonCamera
         /// 选项键：统一检视快捷键（枪械和近战共用）
         /// </summary>
         public const string InspectKeyCodeKey = "FirstPersonCamera_InspectKeyCode";
+        
+        /// <summary>
+        /// 选项键：UI检视时间（秒）
+        /// </summary>
+        public const string UIInspectDurationKey = "FirstPersonCamera_UIInspectDuration";
+        
+        /// <summary>
+        /// 选项键：UI检视大小（UI图标大小倍数）
+        /// </summary>
+        public const string UIInspectSizeKey = "FirstPersonCamera_UIInspectSize";
+        
+        /// <summary>
+        /// 选项键：3D模型检视距离（相机到模型的距离，米）
+        /// </summary>
+        public const string ModelInspectDistanceKey = "FirstPersonCamera_ModelInspectDistance";
+        
+        /// <summary>
+        /// UI检视时间最小值（秒）
+        /// </summary>
+        public const float UIInspectDurationMin = 0.5f;
+        
+        /// <summary>
+        /// UI检视时间最大值（秒）
+        /// </summary>
+        public const float UIInspectDurationMax = 10f;
+        
+        /// <summary>
+        /// UI检视时间默认值（秒）
+        /// </summary>
+        public const float UIInspectDurationDefault = 3f;
+        
+        /// <summary>
+        /// UI检视大小最小值（倍数）
+        /// </summary>
+        public const float UIInspectSizeMin = 0.1f;
+        
+        /// <summary>
+        /// UI检视大小最大值（倍数）
+        /// </summary>
+        public const float UIInspectSizeMax = 3f;
+        
+        /// <summary>
+        /// UI检视大小默认值（倍数）
+        /// </summary>
+        public const float UIInspectSizeDefault = 1f;
+        
+        /// <summary>
+        /// 3D模型检视距离最小值（米）
+        /// </summary>
+        public const float ModelInspectDistanceMin = 0.3f;
+        
+        /// <summary>
+        /// 3D模型检视距离最大值（米）
+        /// </summary>
+        public const float ModelInspectDistanceMax = 2f;
+        
+        /// <summary>
+        /// 3D模型检视距离默认值（米）
+        /// </summary>
+        public const float ModelInspectDistanceDefault = 0.6f;
         #endregion
 
         #region 部位隐藏选项键
