@@ -341,8 +341,8 @@ namespace FirstPersonCamera
         {
             // 跳跃参数 - 现代FPS风格设计（已优化：减慢速度，防止穿墙）
             // 参考：CS:GO, Valorant, Apex Legends等现代FPS游戏
-            float jumpHeight = 0.65f; // 跳跃高度（米）- 稍微提高高度，保持合理的跳跃感觉
-            float timeStep = 0.016f; // 时间步长（16ms，60fps更新频率），更平滑的跳跃
+            float jumpHeight = 0.8f; // 跳跃高度（米）- 稍微提高高度，保持合理的跳跃感觉
+            float timeStep = 0.008f; // 时间步长（8ms，125fps更新频率），更平滑的跳跃
             float maxJumpDuration = 0.6f; // 最大跳跃持续时间（秒）- 增加持续时间，减慢跳跃
             float gravityMultiplier = 2.0f; // 重力倍数 - 降低重力，让跳跃更慢更平滑
             int maxFrames = Mathf.CeilToInt(maxJumpDuration / timeStep);
@@ -436,6 +436,25 @@ namespace FirstPersonCamera
             bool hasStartedRising = false; // 标记是否已经开始上升
             float minJumpTime = 0.05f; // 最小跳跃时间（秒）
             
+            // 立即设置初始速度，避免延迟
+            // 在跳跃开始时立即应用初始垂直速度，让跳跃立即开始
+            try
+            {
+                // 立即设置水平速度
+                movementControl.SetForceMoveVelocity(horizontalVelocity);
+                
+                // 立即设置初始垂直位置（稍微向上，开始跳跃）
+                Vector3 initialPos = mainCharacter.transform.position;
+                Vector3 initialJumpPos = initialPos + Vector3.up * 0.05f; // 立即向上移动一点，确保跳跃开始
+                mainCharacter.SetPosition(initialJumpPos);
+                
+                FPLogger.Log("跳跃立即开始: 初始位置={0}, 水平速度={1}m/s", initialJumpPos, horizontalVelocity.magnitude);
+            }
+            catch (System.Exception ex)
+            {
+                FPLogger.LogException(ex, "跳跃初始化异常");
+            }
+            
             // 使用速度系统：每帧计算速度并设置，让游戏的运动系统处理碰撞
             for (int i = 0; i < maxFrames; i++)
             {
@@ -448,7 +467,7 @@ namespace FirstPersonCamera
                         break;
                     }
                     
-                    // 更新经过的时间
+                    // 更新经过的时间（在第一帧时已经有一点时间了）
                     elapsedTime += timeStep;
                     
                     // 计算当前垂直速度：v = v0 - g*t
@@ -469,60 +488,78 @@ namespace FirstPersonCamera
                     }
                     lastVerticalVelocity = currentVerticalVelocity;
                     
-                    // 落地检测：检查是否在地面上或垂直速度已经很小
-                    bool shouldLand = false;
-                    
-                    if (hasStartedRising && elapsedTime > minJumpTime)
-                    {
-                        // 方法1：检查是否在地面上（最可靠）
-                        if (hasReachedPeak && movementControl.IsOnGround)
-                        {
-                            shouldLand = true;
-                            FPLogger.Log("跳跃完成: 已落地 (时间 {0:F3}s, 帧 {1}, 地面检测)", elapsedTime, i);
-                        }
-                        // 方法2：如果垂直速度向下且很小，并且已经到达最高点，认为已落地
-                        else if (hasReachedPeak && currentVerticalVelocity < -2f && elapsedTime > timeToPeak * 1.2f)
-                        {
-                            // 检查是否接近地面
-                            if (movementControl.IsOnGround || currentVerticalVelocity < -5f)
-                            {
-                                shouldLand = true;
-                                FPLogger.Log("跳跃完成: 已落地 (时间 {0:F3}s, 帧 {1}, 垂直速度 {2:F2}m/s)", elapsedTime, i, currentVerticalVelocity);
-                            }
-                        }
-                    }
-                    
-                    if (shouldLand)
-                    {
-                        // 停止强制移动，让游戏正常处理
-                        movementControl.SetForceMoveVelocity(Vector3.zero);
-                        break;
-                    }
-                    
                     // 混合方案：水平速度用速度系统（防止水平穿墙），垂直位置用物理计算
                     // SetForceMoveVelocity会忽略Y值，所以我们需要分别处理
                     
                     // 1. 设置水平速度（防止水平方向穿墙）
                     movementControl.SetForceMoveVelocity(horizontalVelocity);
                     
-                    // 2. 计算垂直位置（使用物理公式）
+                    // 2. 获取当前位置（已经由速度系统更新了水平位置）
+                    Vector3 currentPos = mainCharacter.transform.position;
+                    
+                    // 3. 计算垂直位置偏移（使用物理公式）
                     float verticalOffset = initialVerticalVelocity * elapsedTime - 0.5f * gravity * elapsedTime * elapsedTime;
                     
-                    // 3. 获取当前位置（已经由速度系统更新了水平位置）
-                    Vector3 currentPos = mainCharacter.transform.position;
+                    // 4. 落地检测：优化检测逻辑，避免过早触发导致卡顿
+                    bool shouldLand = false;
+                    
+                    if (hasStartedRising && elapsedTime > minJumpTime)
+                    {
+                        // 方法1：检查垂直偏移是否已经回到地面附近（物理计算）
+                        // 只有当垂直偏移小于等于0，并且已经到达最高点，才认为可以落地
+                        if (hasReachedPeak && verticalOffset <= 0f && elapsedTime > timeToPeak * 1.1f)
+                        {
+                            // 使用更严格的地面检测，避免在接近地面时就触发
+                            // 只有当真正在地面上时才落地
+                            if (movementControl.IsOnGround)
+                            {
+                                shouldLand = true;
+                                FPLogger.Log("跳跃完成: 已落地 (时间 {0:F3}s, 帧 {1}, 垂直偏移 {2:F3}m, 地面检测)", elapsedTime, i, verticalOffset);
+                            }
+                            // 如果垂直偏移已经明显低于起始位置，也认为已落地
+                            else if (verticalOffset < -0.05f && currentVerticalVelocity < -1f)
+                            {
+                                shouldLand = true;
+                                FPLogger.Log("跳跃完成: 已落地 (时间 {0:F3}s, 帧 {1}, 垂直偏移 {2:F3}m, 物理计算)", elapsedTime, i, verticalOffset);
+                            }
+                        }
+                        // 方法2：如果垂直速度向下且很小，并且已经明显超过最高点时间，检查是否在地面上
+                        else if (hasReachedPeak && currentVerticalVelocity < -3f && elapsedTime > timeToPeak * 1.5f)
+                        {
+                            // 只有在垂直速度较大且确实在地面上时才落地
+                            if (movementControl.IsOnGround && verticalOffset < 0.1f)
+                            {
+                                shouldLand = true;
+                                FPLogger.Log("跳跃完成: 已落地 (时间 {0:F3}s, 帧 {1}, 垂直速度 {2:F2}m/s, 延迟检测)", elapsedTime, i, currentVerticalVelocity);
+                            }
+                        }
+                    }
+                    
+                    if (shouldLand)
+                    {
+                        // 平滑落地：设置到精确的地面位置
+                        Vector3 landPos = mainCharacter.transform.position;
+                        landPos.y = startPosition.y; // 精确回到起始高度
+                        mainCharacter.SetPosition(landPos);
+                        
+                        // 停止强制移动，让游戏正常处理
+                        movementControl.SetForceMoveVelocity(Vector3.zero);
+                        break;
+                    }
                     
                     // 4. 只更新垂直位置（水平位置由速度系统处理，不会穿墙）
                     Vector3 targetPos = new Vector3(currentPos.x, startPosition.y + verticalOffset, currentPos.z);
                     
-                    // 5. 碰撞检测：检查垂直方向是否有障碍物
+                    // 5. 碰撞检测：检查垂直方向是否有障碍物（只在上升阶段或明显移动时检测）
                     float lastVerticalOffset = (i > 0) ? (initialVerticalVelocity * (elapsedTime - timeStep) - 0.5f * gravity * (elapsedTime - timeStep) * (elapsedTime - timeStep)) : 0f;
                     float verticalDelta = verticalOffset - lastVerticalOffset;
                     
-                    if (Mathf.Abs(verticalDelta) > 0.01f)
+                    // 只在有明显垂直移动时进行碰撞检测，避免在接近地面时的频繁检测导致卡顿
+                    if (Mathf.Abs(verticalDelta) > 0.02f && verticalOffset > -0.15f) // 接近地面时不检测，避免卡顿
                     {
                         Vector3 raycastStart = new Vector3(currentPos.x, startPosition.y + lastVerticalOffset, currentPos.z);
                         Vector3 raycastDirection = verticalDelta > 0f ? Vector3.up : Vector3.down;
-                        float raycastDistance = Mathf.Abs(verticalDelta) + 0.1f;
+                        float raycastDistance = Mathf.Abs(verticalDelta) + 0.15f;
                         
                         // 使用Raycast检查垂直方向碰撞
                         RaycastHit hit;
@@ -533,40 +570,22 @@ namespace FirstPersonCamera
                             if (verticalDelta > 0f)
                             {
                                 // 上升阶段：不能超过障碍物
-                                targetPos.y = Mathf.Min(targetPos.y, hitHeight - 0.1f);
+                                targetPos.y = Mathf.Min(targetPos.y, hitHeight - 0.15f);
                                 FPLogger.Log("跳跃碰到上方障碍物，调整高度: {0:F2}m -> {1:F2}m", startPosition.y + verticalOffset, targetPos.y);
-                                
-                                // 如果被阻挡，可能需要提前落地
-                                if (targetPos.y <= startPosition.y + 0.1f)
-                                {
-                                    shouldLand = true;
-                                }
                             }
-                            else
+                            else if (verticalOffset > 0.1f) // 只在明显高于地面时才调整，避免在接近地面时卡顿
                             {
-                                // 下降阶段：不能低于障碍物（可能是地面）
-                                targetPos.y = Mathf.Max(targetPos.y, hitHeight + 0.1f);
-                                // 如果接近地面，认为已落地
-                                if (Mathf.Abs(targetPos.y - startPosition.y) < 0.1f)
-                                {
-                                    shouldLand = true;
-                                }
+                                // 下降阶段：不能低于障碍物（但在接近地面时不调整，让落地检测处理）
+                                targetPos.y = Mathf.Max(targetPos.y, hitHeight + 0.15f);
                             }
                         }
                     }
                     
                     // 设置位置（垂直方向，水平位置已由速度系统更新）
+                    // 只有在没有触发落地时才设置位置
                     if (!shouldLand)
                     {
                         mainCharacter.SetPosition(targetPos);
-                    }
-                    else
-                    {
-                        // 如果应该落地，设置到地面位置
-                        targetPos.y = startPosition.y;
-                        mainCharacter.SetPosition(targetPos);
-                        movementControl.SetForceMoveVelocity(Vector3.zero);
-                        break;
                     }
                     
                 }
