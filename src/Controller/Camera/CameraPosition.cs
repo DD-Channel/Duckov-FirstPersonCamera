@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using FirstPersonCamera.Utilities;
 
 namespace FirstPersonCamera
 {
@@ -59,6 +60,28 @@ namespace FirstPersonCamera
         /// 防抖动强度阈值，低于此值时不启用防抖动
         /// </summary>
         private const float ANTI_BOB_STRENGTH_THRESHOLD = 0.0001f;
+        
+        /// <summary>
+        /// 是否正在跳跃（用于禁用防抖动的Y轴平滑）
+        /// </summary>
+        private bool isJumping;
+        
+        /// <summary>
+        /// 跳跃状态持续的帧数
+        /// </summary>
+        private int jumpingFrameCount;
+        
+        /// <summary>
+        /// 通知防抖动系统正在跳跃
+        /// </summary>
+        public void NotifyJumping()
+        {
+            isJumping = true;
+            jumpingFrameCount = 0;
+            // 重置防抖动状态，让相机立即跟随
+            antiBobInitialized = false;
+            FPLogger.Log("通知防抖动系统：正在跳跃，重置防抖动状态");
+        }
         #endregion
 
         #region 相机位置和旋转更新
@@ -117,6 +140,31 @@ namespace FirstPersonCamera
                 float devLat = Vector3.Dot(dev, rightFlat);
                 float devFwd = Vector3.Dot(dev, forwardFlat);
 
+                // 更新跳跃状态：如果标记为跳跃，持续几帧
+                if (isJumping)
+                {
+                    jumpingFrameCount++;
+                    // 跳跃状态持续10帧（约0.16秒，60fps），或者直到速度下降到阈值以下
+                    if (jumpingFrameCount > 10)
+                    {
+                        // 检查速度，如果速度已经下降，停止跳跃状态
+                        if (mainCharacter != null && mainCharacter.movementControl != null)
+                        {
+                            Vector3 velocity = mainCharacter.movementControl.Velocity;
+                            if (velocity.y < 0.5f)
+                            {
+                                isJumping = false;
+                                FPLogger.Log("跳跃状态结束（速度下降）");
+                            }
+                        }
+                        else
+                        {
+                            isJumping = false;
+                            FPLogger.Log("跳跃状态结束（超时）");
+                        }
+                    }
+                }
+
                 // 初始化或平滑偏移值
                 if (!antiBobInitialized)
                 {
@@ -128,6 +176,19 @@ namespace FirstPersonCamera
                     antiBobCurrentFwd = devFwd;
                     antiBobVelFwd = 0f;
                     antiBobInitialized = true;
+                }
+                else if (isJumping)
+                {
+                    // 跳跃时，禁用Y轴平滑，让相机立即跟随
+                    antiBobCurrentY = devY;
+                    antiBobVelY = 0f;
+                    // 水平轴仍然平滑
+                    float smoothTime = Mathf.Lerp(ANTI_BOB_SMOOTH_MIN, ANTI_BOB_SMOOTH_MAX, 
+                        Mathf.Clamp01(antiBobStrength));
+                    antiBobCurrentLat = Mathf.SmoothDamp(antiBobCurrentLat, devLat, ref antiBobVelLat, 
+                        smoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
+                    antiBobCurrentFwd = Mathf.SmoothDamp(antiBobCurrentFwd, devFwd, ref antiBobVelFwd, 
+                        smoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
                 }
                 else
                 {
