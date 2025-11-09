@@ -115,6 +115,12 @@ namespace FirstPersonCamera
             // 如果正在瞄准，不执行（避免冲突）
             if (IsInAdsState()) return;
             
+            // 如果正在跑步，检查设置是否允许奔跑时检视
+            if (IsRunning() && !IsAllowInspectWhileRunning())
+            {
+                return;
+            }
+            
             // 停止之前的协程（如果有）
             if (weaponInspectCoroutine != null)
             {
@@ -548,6 +554,49 @@ namespace FirstPersonCamera
         }
         
         /// <summary>
+        /// 检查是否允许奔跑时检视
+        /// </summary>
+        private bool IsAllowInspectWhileRunning()
+        {
+            try
+            {
+                return OptionsHelper.LoadInt(OptionsUIConstants.AllowInspectWhileRunningKey, 0) == 1;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// 检查角色是否在跑步
+        /// </summary>
+        private bool IsRunning()
+        {
+            try
+            {
+                bool isRunning = false;
+                if (useNewInputSystem)
+                {
+                    var keyboard = Keyboard.current;
+                    if (keyboard != null)
+                    {
+                        isRunning = keyboard.leftShiftKey.isPressed;
+                    }
+                }
+                else
+                {
+                    isRunning = Input.GetKey(KeyCode.LeftShift);
+                }
+                return isRunning;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        
+        /// <summary>
         /// 检查是否应该打断检视
         /// </summary>
         private bool ShouldInterruptInspect()
@@ -584,27 +633,15 @@ namespace FirstPersonCamera
             // 如果武器切换了（当前武器与检视开始时的武器不同），打断检视
             if (inspectingWeapon != null && gun != inspectingWeapon) return true;
             
-            // 如果角色在跑步（只检测Shift键，不检测速度，避免行走时误判）
-            try
+            // 如果角色在跑步，检查设置是否允许奔跑时检视
+            if (IsRunning())
             {
-                // 只检测跑步键（Shift），完全忽略速度检测
-                bool isRunning = false;
-                if (useNewInputSystem)
+                // 如果不允许奔跑时检视，打断检视
+                if (!IsAllowInspectWhileRunning())
                 {
-                    var keyboard = Keyboard.current;
-                    if (keyboard != null)
-                    {
-                        isRunning = keyboard.leftShiftKey.isPressed;
-                    }
+                    return true;
                 }
-                else
-                {
-                    isRunning = Input.GetKey(KeyCode.LeftShift);
-                }
-                
-                if (isRunning) return true;
             }
-            catch { }
             
             return false;
         }

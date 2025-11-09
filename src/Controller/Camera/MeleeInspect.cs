@@ -82,6 +82,12 @@ namespace FirstPersonCamera
             var melee = mainCharacter.GetMeleeWeapon();
             if (melee == null || melee.transform == null) return;
             if (IsInAdsState()) return;
+            
+            // 如果正在跑步，检查设置是否允许奔跑时检视
+            if (IsRunning() && !IsAllowInspectWhileRunning())
+            {
+                return;
+            }
 
             if (meleeInspectCoroutine != null)
             {
@@ -390,15 +396,15 @@ namespace FirstPersonCamera
             // 检查武器是否切换了（通过比较武器对象引用）
             if (inspectingMelee != null && inspectingMelee != melee) return true;
 
-            // 跑步打断（只看Shift键）
-            try
+            // 如果角色在跑步，检查设置是否允许奔跑时检视
+            if (IsRunning())
             {
-                bool running = false;
-                if (useNewInputSystem) { var kb = Keyboard.current; if (kb != null) running = kb.leftShiftKey.isPressed; }
-                else { running = Input.GetKey(KeyCode.LeftShift); }
-                if (running) return true;
+                // 如果不允许奔跑时检视，打断检视
+                if (!IsAllowInspectWhileRunning())
+                {
+                    return true;
+                }
             }
-            catch { }
 
             return false;
         }

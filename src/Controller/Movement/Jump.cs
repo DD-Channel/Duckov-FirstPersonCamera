@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
 using FirstPersonCamera.OptionsUI;
 using FirstPersonCamera.Utilities;
 
@@ -37,6 +39,24 @@ namespace FirstPersonCamera
         /// 当前跳跃协程（用于防止重复跳跃）
         /// </summary>
         private Coroutine jumpCoroutine = null;
+
+        /// <summary>
+        /// 存储宠物AI的事件处理信息，用于在跳跃期间禁用传送
+        /// </summary>
+        private List<PetAIEventInfo> petAIEventInfos = new List<PetAIEventInfo>();
+
+        /// <summary>
+        /// 宠物AI事件信息（用于临时禁用传送）
+        /// </summary>
+        private class PetAIEventInfo
+        {
+            public object petAIInstance;
+            public object masterCharacter;
+            public MethodInfo onSetPositionMethod;
+            public FieldInfo eventField;
+            public EventInfo eventInfo;
+            public object eventHandler;
+        }
         #endregion
 
         #region 跳跃功能方法
@@ -325,6 +345,9 @@ namespace FirstPersonCamera
                 FPLogger.LogWarning("无法通知防抖动系统：Instance 为 null");
             }
 
+            // 禁用狗的传送（在跳跃期间）
+            DisablePetTeleportDuringJump();
+
             // 启动跳跃协程
             if (jumpCoroutine != null)
             {
@@ -339,22 +362,25 @@ namespace FirstPersonCamera
         /// </summary>
         private IEnumerator DoJumpCoroutine(global::Movement movementControl)
         {
-            // 跳跃参数 - 现代FPS风格设计（已优化：减慢速度，防止穿墙）
-            // 参考：CS:GO, Valorant, Apex Legends等现代FPS游戏
-            float jumpHeight = 0.8f; // 跳跃高度（米）- 稍微提高高度，保持合理的跳跃感觉
-            float timeStep = 0.008f; // 时间步长（8ms，125fps更新频率），更平滑的跳跃
-            float maxJumpDuration = 0.6f; // 最大跳跃持续时间（秒）- 增加持续时间，减慢跳跃
-            float gravityMultiplier = 2.0f; // 重力倍数 - 降低重力，让跳跃更慢更平滑
-            int maxFrames = Mathf.CeilToInt(maxJumpDuration / timeStep);
-            
-            Vector3 startPosition = Vector3.zero;
-            Vector3 horizontalVelocity = Vector3.zero;
-            float gravity = 0f;
-            float initialVerticalVelocity = 0f;
-            float timeToPeak = 0f; // 到达最高点的时间
-            
+            // 使用 try-finally 确保即使跳跃被中断，也能恢复狗的传送
             try
             {
+                // 跳跃参数 - 现代FPS风格设计（已优化：减慢速度，防止穿墙）
+                // 参考：CS:GO, Valorant, Apex Legends等现代FPS游戏
+                float jumpHeight = 0.8f; // 跳跃高度（米）- 稍微提高高度，保持合理的跳跃感觉
+                float timeStep = 0.008f; // 时间步长（8ms，125fps更新频率），更平滑的跳跃
+                float maxJumpDuration = 0.6f; // 最大跳跃持续时间（秒）- 增加持续时间，减慢跳跃
+                float gravityMultiplier = 2.0f; // 重力倍数 - 降低重力，让跳跃更慢更平滑
+                int maxFrames = Mathf.CeilToInt(maxJumpDuration / timeStep);
+                
+                Vector3 startPosition = Vector3.zero;
+                Vector3 horizontalVelocity = Vector3.zero;
+                float gravity = 0f;
+                float initialVerticalVelocity = 0f;
+                float timeToPeak = 0f; // 到达最高点的时间
+                
+                try
+                {
                 // 获取初始位置
                 startPosition = mainCharacter.transform.position;
                 
@@ -426,6 +452,7 @@ namespace FirstPersonCamera
             {
                 FPLogger.LogException(ex, "跳跃协程初始化异常");
                 jumpCoroutine = null;
+                // yield break 会正常执行 finally 块，确保恢复狗的传送
                 yield break;
             }
             
@@ -631,24 +658,30 @@ namespace FirstPersonCamera
                 yield return new WaitForSeconds(timeStep);
             }
             
-            // 确保停止强制移动
-            try
-            {
-                if (movementControl != null)
+                // 确保停止强制移动
+                try
                 {
-                    movementControl.SetForceMoveVelocity(Vector3.zero);
+                    if (movementControl != null)
+                    {
+                        movementControl.SetForceMoveVelocity(Vector3.zero);
+                    }
                 }
+                catch (System.Exception ex)
+                {
+                    FPLogger.LogException(ex, "清除强制移动速度异常");
+                }
+                
+                // 落地后立即清除协程引用，允许立即再次跳跃
+                // 不需要等待，因为SetPosition已经设置了正确的位置
+                jumpCoroutine = null;
+                
+                FPLogger.Log("跳跃协程完成: 总时间={0:F3}s", elapsedTime);
             }
-            catch (System.Exception ex)
+            finally
             {
-                FPLogger.LogException(ex, "清除强制移动速度异常");
+                // 无论跳跃是正常结束还是被中断（包括 yield break），都要恢复狗的传送
+                EnablePetTeleportAfterJump();
             }
-            
-            // 落地后立即清除协程引用，允许立即再次跳跃
-            // 不需要等待，因为SetPosition已经设置了正确的位置
-            jumpCoroutine = null;
-            
-            FPLogger.Log("跳跃协程完成: 总时间={0:F3}s", elapsedTime);
         }
 
         /// <summary>
@@ -663,6 +696,293 @@ namespace FirstPersonCamera
 
             FPLogger.Log("新输入系统检测到跳跃输入");
             DoJump();
+        }
+
+        /// <summary>
+        /// 禁用狗的传送（在跳跃期间）
+        /// 使用反射从OnSetPositionEvent事件中移除OnMainCharacterSetPosition方法
+        /// </summary>
+        private void DisablePetTeleportDuringJump()
+        {
+            try
+            {
+                // 清空之前的记录
+                petAIEventInfos.Clear();
+
+                // 获取PetAI类型（尝试从所有已加载的程序集中查找）
+                System.Type petAIType = null;
+                System.Reflection.Assembly[] assemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+                foreach (System.Reflection.Assembly assembly in assemblies)
+                {
+                    try
+                    {
+                        petAIType = assembly.GetType("PetAI");
+                        if (petAIType != null)
+                        {
+                            break;
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略无法访问的程序集
+                    }
+                }
+
+                if (petAIType == null)
+                {
+                    FPLogger.LogWarning("无法找到PetAI类型，跳过禁用狗传送");
+                    return;
+                }
+
+                // 查找场景中所有的PetAI组件
+                MonoBehaviour[] allMonoBehaviours = GameObject.FindObjectsOfType<MonoBehaviour>();
+                int foundCount = 0;
+
+                foreach (MonoBehaviour mb in allMonoBehaviours)
+                {
+                    if (mb == null || mb.GetType() != petAIType)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        object petAI = mb;
+                        
+                        // 获取master字段（CharacterMainControl类型）
+                        FieldInfo masterField = petAIType.GetField("master", BindingFlags.Public | BindingFlags.Instance);
+                        if (masterField == null)
+                        {
+                            continue;
+                        }
+
+                        object masterCharacter = masterField.GetValue(petAI);
+                        if (masterCharacter == null)
+                        {
+                            continue;
+                        }
+
+                        // 检查是否是主角色
+                        System.Type characterType = masterCharacter.GetType();
+                        PropertyInfo isMainCharacterProp = characterType.GetProperty("IsMainCharacter");
+                        if (isMainCharacterProp != null)
+                        {
+                            bool isMain = (bool)isMainCharacterProp.GetValue(masterCharacter);
+                            if (!isMain)
+                            {
+                                continue; // 不是主角色，跳过
+                            }
+                        }
+
+                        // 获取OnMainCharacterSetPosition方法
+                        MethodInfo onSetPositionMethod = petAIType.GetMethod("OnMainCharacterSetPosition", 
+                            BindingFlags.NonPublic | BindingFlags.Instance);
+                        if (onSetPositionMethod == null)
+                        {
+                            continue;
+                        }
+
+                        // 获取CharacterMainControl的OnSetPositionEvent事件
+                        System.Type characterMainControlType = masterCharacter.GetType();
+                        EventInfo eventInfo = characterMainControlType.GetEvent("OnSetPositionEvent");
+                        if (eventInfo == null)
+                        {
+                            continue;
+                        }
+
+                        // 获取事件的底层委托字段（C#事件实际上是私有的委托字段）
+                        FieldInfo eventField = characterMainControlType.GetField("OnSetPositionEvent", 
+                            BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
+                        if (eventField == null)
+                        {
+                            // 尝试获取带下划线的私有字段（某些编译器会这样命名）
+                            eventField = characterMainControlType.GetField("OnSetPositionEvent", 
+                                BindingFlags.NonPublic | BindingFlags.Instance);
+                        }
+
+                        if (eventField == null)
+                        {
+                            // 使用RemoveEventHandler方法（这是标准的事件移除方法）
+                            try
+                            {
+                                // 创建委托
+                                System.Type actionType = typeof(System.Action<,>).MakeGenericType(
+                                    characterMainControlType, typeof(Vector3));
+                                System.Delegate handler = System.Delegate.CreateDelegate(actionType, petAI, onSetPositionMethod);
+                                
+                                // 从事件中移除
+                                eventInfo.RemoveEventHandler(masterCharacter, handler);
+                                
+                                // 保存信息以便恢复
+                                PetAIEventInfo info = new PetAIEventInfo
+                                {
+                                    petAIInstance = petAI,
+                                    masterCharacter = masterCharacter,
+                                    onSetPositionMethod = onSetPositionMethod,
+                                    eventInfo = eventInfo,
+                                    eventHandler = handler
+                                };
+                                petAIEventInfos.Add(info);
+                                
+                                foundCount++;
+                                FPLogger.Log("已禁用PetAI传送: PetAI={0}, Master={1}", petAI, masterCharacter);
+                            }
+                            catch (System.Exception ex)
+                            {
+                                FPLogger.LogWarning("移除PetAI事件失败: {0}", ex.Message);
+                            }
+                        }
+                        else
+                        {
+                            // 直接操作委托字段
+                            try
+                            {
+                                object eventHandler = eventField.GetValue(masterCharacter);
+                                
+                                // 创建委托
+                                System.Type actionType = typeof(System.Action<,>).MakeGenericType(
+                                    characterMainControlType, typeof(Vector3));
+                                System.Delegate handler = System.Delegate.CreateDelegate(actionType, petAI, onSetPositionMethod);
+                                
+                                // 从委托中移除
+                                if (eventHandler != null)
+                                {
+                                    System.Delegate combinedDelegate = System.Delegate.Remove((System.Delegate)eventHandler, handler);
+                                    eventField.SetValue(masterCharacter, combinedDelegate);
+                                    
+                                    // 保存信息以便恢复
+                                    PetAIEventInfo info = new PetAIEventInfo
+                                    {
+                                        petAIInstance = petAI,
+                                        masterCharacter = masterCharacter,
+                                        onSetPositionMethod = onSetPositionMethod,
+                                        eventField = eventField,
+                                        eventHandler = eventHandler
+                                    };
+                                    petAIEventInfos.Add(info);
+                                    
+                                    foundCount++;
+                                    FPLogger.Log("已禁用PetAI传送（通过字段）: PetAI={0}, Master={1}", petAI, masterCharacter);
+                                }
+                            }
+                            catch (System.Exception ex)
+                            {
+                                FPLogger.LogWarning("操作PetAI事件字段失败: {0}", ex.Message);
+                            }
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        FPLogger.LogWarning("处理PetAI时出错: {0}", ex.Message);
+                    }
+                }
+
+                if (foundCount > 0)
+                {
+                    FPLogger.Log("已禁用 {0} 个PetAI的传送功能", foundCount);
+                }
+                else
+                {
+                    FPLogger.Log("未找到需要禁用的PetAI组件");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                FPLogger.LogException(ex, "禁用PetAI传送时发生异常");
+            }
+        }
+
+        /// <summary>
+        /// 恢复狗的传送（跳跃结束后）
+        /// 使用反射重新添加OnMainCharacterSetPosition方法到OnSetPositionEvent事件
+        /// </summary>
+        private void EnablePetTeleportAfterJump()
+        {
+            try
+            {
+                if (petAIEventInfos == null || petAIEventInfos.Count == 0)
+                {
+                    return;
+                }
+
+                int restoredCount = 0;
+
+                foreach (PetAIEventInfo info in petAIEventInfos)
+                {
+                    try
+                    {
+                        if (info.petAIInstance == null || info.masterCharacter == null || info.onSetPositionMethod == null)
+                        {
+                            continue;
+                        }
+
+                        // 方法1：使用EventInfo的AddEventHandler方法
+                        if (info.eventInfo != null && info.eventHandler != null)
+                        {
+                            try
+                            {
+                                info.eventInfo.AddEventHandler(info.masterCharacter, (System.Delegate)info.eventHandler);
+                                restoredCount++;
+                                FPLogger.Log("已恢复PetAI传送（通过EventInfo）: PetAI={0}", info.petAIInstance);
+                                continue;
+                            }
+                            catch (System.Exception ex)
+                            {
+                                FPLogger.LogWarning("通过EventInfo恢复失败: {0}", ex.Message);
+                            }
+                        }
+
+                        // 方法2：直接操作委托字段
+                        if (info.eventField != null)
+                        {
+                            try
+                            {
+                                object currentHandler = info.eventField.GetValue(info.masterCharacter);
+                                
+                                // 创建委托
+                                System.Type characterMainControlType = info.masterCharacter.GetType();
+                                System.Type actionType = typeof(System.Action<,>).MakeGenericType(
+                                    characterMainControlType, typeof(Vector3));
+                                System.Delegate handler = System.Delegate.CreateDelegate(actionType, info.petAIInstance, info.onSetPositionMethod);
+                                
+                                // 添加到委托
+                                if (currentHandler == null)
+                                {
+                                    info.eventField.SetValue(info.masterCharacter, handler);
+                                }
+                                else
+                                {
+                                    System.Delegate combinedDelegate = System.Delegate.Combine((System.Delegate)currentHandler, handler);
+                                    info.eventField.SetValue(info.masterCharacter, combinedDelegate);
+                                }
+                                
+                                restoredCount++;
+                                FPLogger.Log("已恢复PetAI传送（通过字段）: PetAI={0}", info.petAIInstance);
+                            }
+                            catch (System.Exception ex)
+                            {
+                                FPLogger.LogWarning("通过字段恢复失败: {0}", ex.Message);
+                            }
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        FPLogger.LogWarning("恢复PetAI传送时出错: {0}", ex.Message);
+                    }
+                }
+
+                if (restoredCount > 0)
+                {
+                    FPLogger.Log("已恢复 {0} 个PetAI的传送功能", restoredCount);
+                }
+
+                // 清空记录
+                petAIEventInfos.Clear();
+            }
+            catch (System.Exception ex)
+            {
+                FPLogger.LogException(ex, "恢复PetAI传送时发生异常");
+            }
         }
 
         #endregion
