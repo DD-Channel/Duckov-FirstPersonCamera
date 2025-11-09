@@ -7,6 +7,7 @@ using Duckov.Scenes;
 using Dialogues;
 using FirstPersonCamera.OptionsUI;
 using FirstPersonCamera.Utilities;
+using FirstPersonCamera.Compatibility;
 
 namespace FirstPersonCamera
 {
@@ -230,6 +231,17 @@ namespace FirstPersonCamera
             // 预创建指南针，使其在游戏开始时立即出现
             try { EnsureCompass(); } catch { }
             
+            // 初始化对话气泡兼容性支持
+            try
+            {
+                // 延迟初始化兼容性组件（等待其他mod加载）
+                StartCoroutine(InitializeDialogueBubbleCompatibilityDelayed());
+            }
+            catch (System.Exception ex)
+            {
+                FPLogger.LogException(ex, "初始化对话气泡兼容性支持失败");
+            }
+            
             // 侧头键位在Camera/Peek.cs中加载，这里不需要调用
             
             // 安全措施：确保在非第一人称模式下光标默认解锁，避免异常关闭/卸载/重装流程后遗留锁定状态
@@ -249,6 +261,24 @@ namespace FirstPersonCamera
             if (isFirstPersonMode) DisableFirstPerson();
             // 确保恢复跳跃输入绑定
             try { RestoreJumpInput(); } catch { }
+            
+            // 清理对话气泡兼容性支持
+            try
+            {
+                // 取消订阅事件
+                ScavDialogueBubbleCompatibility.OnDialogueBubbleReceived -= OnDialogueBubbleReceived;
+                
+                // 清理兼容性组件
+                if (ScavDialogueBubbleCompatibility.Instance != null)
+                {
+                    ScavDialogueBubbleCompatibility.Instance.Cleanup();
+                }
+            }
+            catch (System.Exception ex)
+            {
+                FPLogger.LogException(ex, "清理对话气泡兼容性支持失败");
+            }
+            
             if (ReferenceEquals(Instance, this)) Instance = null;
 
             // 保存所有配置数据（包括动态保存的数据，如武器偏移等）
@@ -527,6 +557,9 @@ namespace FirstPersonCamera
             try { LateUpdateCompass(); } catch { }
             try { LateUpdateStaminaBar(); } catch { }
             
+            // 更新对话气泡UI（安全保护）
+            try { LateUpdateDialogueBubble(); } catch { }
+            
             // 强制更新激光红点位置，确保在所有其他更新之后设置
             try { LaserPatch.LateUpdateHitMarkers(); } catch { }
         }
@@ -748,6 +781,59 @@ namespace FirstPersonCamera
         }
         #endregion
 
+        #region 对话气泡兼容性支持
+        /// <summary>
+        /// 延迟初始化对话气泡兼容性支持（等待其他mod加载）
+        /// </summary>
+        private System.Collections.IEnumerator InitializeDialogueBubbleCompatibilityDelayed()
+        {
+            // 等待几帧，确保其他mod已经加载
+            yield return new WaitForSeconds(1f);
+            
+            try
+            {
+                // 初始化兼容性组件
+                ScavDialogueBubbleCompatibility.Instance.Initialize();
+                
+                // 订阅事件
+                ScavDialogueBubbleCompatibility.OnDialogueBubbleReceived += OnDialogueBubbleReceived;
+                
+                if (ScavDialogueBubbleCompatibility.Instance.IsAvailable)
+                {
+                    FPLogger.Log("对话气泡兼容性支持已启用");
+                }
+                else
+                {
+                    FPLogger.Log("对话气泡兼容性支持不可用（RandomNpc mod未安装）");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                FPLogger.LogException(ex, "初始化对话气泡兼容性支持时出错");
+            }
+        }
+        
+        /// <summary>
+        /// 对话气泡消息接收事件处理
+        /// </summary>
+        /// <param name="message">消息内容</param>
+        private void OnDialogueBubbleReceived(string message)
+        {
+            try
+            {
+                // 仅在第一人称模式下显示对话气泡
+                if (isFirstPersonMode)
+                {
+                    ShowDialogueBubble(message);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                FPLogger.LogException(ex, "处理对话气泡消息时出错");
+            }
+        }
+        #endregion
+        
         #region 辅助协程
         /// <summary>
         /// 瞄准对齐协程：确保缓存并强制屏幕中心瞄准；UI跟随中心
