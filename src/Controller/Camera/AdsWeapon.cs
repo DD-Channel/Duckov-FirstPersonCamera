@@ -282,12 +282,20 @@ namespace FirstPersonCamera
                 // 切换到新武器，加载对应的偏移值
                 currentGunTypeID = gunTypeID;
                 adsYOffsetDelta = LoadGunYOffset(gunTypeID);
+                
+                // 武器切换时，重置ADS缓存，确保新武器能正确初始化
+                adsCachedOrig = false;
+                adsLastGunTransform = null;
             }
             else if (gunTypeID == -1 && currentGunTypeID != -1)
             {
                 // 武器被移除，保存当前武器的偏移值
                 SaveGunYOffset(currentGunTypeID, adsYOffsetDelta);
                 currentGunTypeID = -1;
+                
+                // 武器被移除时，重置ADS缓存
+                adsCachedOrig = false;
+                adsLastGunTransform = null;
             }
 
             // 获取ADS状态

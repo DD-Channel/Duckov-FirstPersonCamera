@@ -104,13 +104,21 @@ namespace FirstPersonCamera
         {
             if (!isInspectingMelee) return;
 
+            // 先停止协程
             if (meleeInspectCoroutine != null)
             {
                 try { StopCoroutine(meleeInspectCoroutine); } catch { }
                 meleeInspectCoroutine = null;
             }
 
-            RestoreMeleeFromInspect();
+            // 尝试恢复近战武器位置（如果还存在）
+            try
+            {
+                RestoreMeleeFromInspect();
+            }
+            catch { }
+            
+            // 清除状态（必须在恢复之后，确保状态被清除）
             isInspectingMelee = false;
             inspectingMelee = null; // 清除武器引用
         }

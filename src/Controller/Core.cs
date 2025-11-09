@@ -807,12 +807,13 @@ namespace FirstPersonCamera
             // 如果不在第一人称模式或没有角色，不需要检测
             if (!isFirstPersonMode || mainCharacter == null) return;
             
-            // 如果正在检视武器，检查武器是否切换
+            // 获取当前武器状态
+            var currentGun = mainCharacter.GetGun();
+            var currentMelee = mainCharacter.GetMeleeWeapon();
+            
+            // 如果正在检视枪械武器，检查武器是否切换
             if (isInspectingWeapon)
             {
-                // 获取当前武器
-                var currentGun = mainCharacter.GetGun();
-                
                 // 如果检视开始时的武器引用不为空
                 if (inspectingWeapon != null)
                 {
@@ -833,6 +834,37 @@ namespace FirstPersonCamera
                     {
                         StopCoroutine(weaponInspectCoroutine);
                         weaponInspectCoroutine = null;
+                    }
+                }
+            }
+            
+            // 如果正在检视近战武器，检查是否切换到枪械
+            if (isInspectingMelee)
+            {
+                // 如果当前有枪械（切换到枪械），停止近战检视
+                if (currentGun != null)
+                {
+                    StopMeleeInspect();
+                }
+                // 如果检视开始时的近战武器引用不为空
+                else if (inspectingMelee != null)
+                {
+                    // 检查当前近战武器与检视开始时的近战武器是否不同
+                    if (currentMelee != inspectingMelee)
+                    {
+                        // 立即停止检视
+                        StopMeleeInspect();
+                    }
+                }
+                else
+                {
+                    // 如果inspectingMelee为null但isInspectingMelee为true，说明状态不一致
+                    // 这可能是由于某些异常情况导致的，需要清除状态
+                    isInspectingMelee = false;
+                    if (meleeInspectCoroutine != null)
+                    {
+                        StopCoroutine(meleeInspectCoroutine);
+                        meleeInspectCoroutine = null;
                     }
                 }
             }
