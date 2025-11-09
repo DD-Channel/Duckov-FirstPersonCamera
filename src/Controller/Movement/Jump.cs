@@ -429,6 +429,9 @@ namespace FirstPersonCamera
                 yield break;
             }
             
+            // 检查设置：是否允许在跳跃途中翻滚
+            bool allowDashDuringJump = OptionsHelper.LoadInt(OptionsUIConstants.AllowDashDuringJumpKey, 1) == 1;
+            
             // 执行跳跃动画 - 使用速度系统防止穿墙
             float elapsedTime = 0f;
             float lastVerticalVelocity = float.MinValue; // 用于检测到达最高点
@@ -465,6 +468,35 @@ namespace FirstPersonCamera
                     {
                         FPLogger.Log("跳跃中断: 退出第一人称模式或角色为空");
                         break;
+                    }
+                    
+                    // 如果设置为不允许翻滚，检查并阻止翻滚动作
+                    if (!allowDashDuringJump && mainCharacter.dashAction != null)
+                    {
+                        try
+                        {
+                            // 检查翻滚是否正在运行
+                            var runningProperty = mainCharacter.dashAction.GetType().GetProperty("Running");
+                            if (runningProperty != null)
+                            {
+                                bool isDashRunning = (bool)runningProperty.GetValue(mainCharacter.dashAction);
+                                if (isDashRunning)
+                                {
+                                    // 如果正在翻滚，停止它
+                                    var stopMethod = mainCharacter.dashAction.GetType().GetMethod("StopAction");
+                                    if (stopMethod != null)
+                                    {
+                                        stopMethod.Invoke(mainCharacter.dashAction, null);
+                                        FPLogger.Log("跳跃中阻止翻滚动作");
+                                    }
+                                }
+                            }
+                        }
+                        catch (System.Exception ex)
+                        {
+                            // 忽略反射错误，不影响跳跃
+                            FPLogger.LogWarning("检查翻滚状态时出错: {0}", ex.Message);
+                        }
                     }
                     
                     // 更新经过的时间（在第一帧时已经有一点时间了）

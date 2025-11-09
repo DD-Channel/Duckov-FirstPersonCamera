@@ -282,6 +282,11 @@ namespace FirstPersonCamera
         public const string EnableJumpKey = "FirstPersonCamera_EnableJump";
         
         /// <summary>
+        /// 选项键：跳跃途中允许翻滚
+        /// </summary>
+        public const string AllowDashDuringJumpKey = "FirstPersonCamera_AllowDashDuringJump";
+        
+        /// <summary>
         /// 选项键：UI检视时间（秒）
         /// </summary>
         public const string UIInspectDurationKey = "FirstPersonCamera_UIInspectDuration";

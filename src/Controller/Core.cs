@@ -800,13 +800,42 @@ namespace FirstPersonCamera
         /// <summary>
         /// 检测武器切换并停止检视（如果武器切换了）
         /// 这个方法在Update循环中每帧调用，确保武器切换时立即清除检视状态
-        /// 注意：武器切换检测在WeaponInspect.cs和MeleeInspect.cs的ShouldInterruptInspect中处理
-        /// 这里只需要确保检视状态在需要时被清除
+        /// 这是主要的武器切换检测点，确保状态及时清除
         /// </summary>
         private void CheckWeaponSwitchAndStopInspect()
         {
-            // 武器切换检测已经在ShouldInterruptInspect中处理，这里不需要额外处理
-            // 如果需要，可以在这里添加其他打断条件
+            // 如果不在第一人称模式或没有角色，不需要检测
+            if (!isFirstPersonMode || mainCharacter == null) return;
+            
+            // 如果正在检视武器，检查武器是否切换
+            if (isInspectingWeapon)
+            {
+                // 获取当前武器
+                var currentGun = mainCharacter.GetGun();
+                
+                // 如果检视开始时的武器引用不为空
+                if (inspectingWeapon != null)
+                {
+                    // 检查当前武器与检视开始时的武器是否不同
+                    // 包括：当前武器为null（切换到非枪械）、或当前武器对象不同（切换到其他枪械）
+                    if (currentGun != inspectingWeapon)
+                    {
+                        // 立即停止检视
+                        StopWeaponInspect();
+                    }
+                }
+                else
+                {
+                    // 如果inspectingWeapon为null但isInspectingWeapon为true，说明状态不一致
+                    // 这可能是由于某些异常情况导致的，需要清除状态
+                    isInspectingWeapon = false;
+                    if (weaponInspectCoroutine != null)
+                    {
+                        StopCoroutine(weaponInspectCoroutine);
+                        weaponInspectCoroutine = null;
+                    }
+                }
+            }
         }
         
         /// <summary>

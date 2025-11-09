@@ -52,6 +52,11 @@ namespace FirstPersonCamera
         private Quaternion inspectOriginalLocalRot;
         
         /// <summary>
+        /// 检视开始时的武器引用（用于检测武器切换）
+        /// </summary>
+        private ItemAgent_Gun inspectingWeapon;
+        
+        /// <summary>
         /// 武器检视时的相机空间偏移（相机坐标系）
         /// 位置：稍微偏右，在面前，稍微向下
         /// </summary>
@@ -125,6 +130,9 @@ namespace FirstPersonCamera
             }
             catch { }
             
+            // 保存检视开始时的武器引用（用于检测武器切换）
+            inspectingWeapon = gun;
+            
             // 开始新的检视协程
             isInspectingWeapon = true;
             weaponInspectCoroutine = StartCoroutine(WeaponInspectCoroutine(gun));
@@ -153,6 +161,9 @@ namespace FirstPersonCamera
                 LaserPatch.SetLaserEnabled(laserWasEnabledBeforeInspect);
             }
             catch { }
+            
+            // 清除武器引用
+            inspectingWeapon = null;
             
             isInspectingWeapon = false;
         }
@@ -255,7 +266,12 @@ namespace FirstPersonCamera
         /// </summary>
         private IEnumerator WeaponInspectCoroutine(ItemAgent_Gun gun)
         {
-            if (gun == null || gun.transform == null) yield break;
+            if (gun == null || gun.transform == null)
+            {
+                inspectingWeapon = null;
+                isInspectingWeapon = false;
+                yield break;
+            }
             
             var gunTf = gun.transform;
             Transform parentTf = gunTf.parent;
@@ -295,6 +311,7 @@ namespace FirstPersonCamera
                 if (ShouldInterruptInspect())
                 {
                     RestoreWeaponFromInspect();
+                    inspectingWeapon = null;
                     isInspectingWeapon = false;
                     yield break;
                 }
@@ -350,6 +367,7 @@ namespace FirstPersonCamera
                     if (ShouldInterruptInspect())
                     {
                         RestoreWeaponFromInspect();
+                        inspectingWeapon = null;
                         isInspectingWeapon = false;
                         yield break;
                     }
@@ -405,6 +423,7 @@ namespace FirstPersonCamera
                         if (ShouldInterruptInspect())
                         {
                             RestoreWeaponFromInspect();
+                            inspectingWeapon = null;
                             isInspectingWeapon = false;
                             yield break;
                         }
@@ -463,6 +482,7 @@ namespace FirstPersonCamera
             if (ShouldInterruptInspect())
             {
                 RestoreWeaponFromInspect();
+                inspectingWeapon = null;
                 isInspectingWeapon = false;
                 yield break;
             }
@@ -478,6 +498,7 @@ namespace FirstPersonCamera
                 if (ShouldInterruptInspect())
                 {
                     RestoreWeaponFromInspect();
+                    inspectingWeapon = null;
                     isInspectingWeapon = false;
                     yield break;
                 }
@@ -518,6 +539,9 @@ namespace FirstPersonCamera
             }
             catch { }
             
+            // 清除武器引用
+            inspectingWeapon = null;
+            
             // 完成检视
             isInspectingWeapon = false;
             weaponInspectCoroutine = null;
@@ -557,6 +581,9 @@ namespace FirstPersonCamera
             var gun = mainCharacter.GetGun();
             if (gun == null || gun.transform == null) return true;
             
+            // 如果武器切换了（当前武器与检视开始时的武器不同），打断检视
+            if (inspectingWeapon != null && gun != inspectingWeapon) return true;
+            
             // 如果角色在跑步（只检测Shift键，不检测速度，避免行走时误判）
             try
             {
@@ -588,10 +615,30 @@ namespace FirstPersonCamera
         private void RestoreWeaponFromInspect()
         {
             if (mainCharacter == null) return;
-            var gun = mainCharacter.GetGun();
-            if (gun == null || gun.transform == null) return;
             
-            var gunTf = gun.transform;
+            // 优先使用检视开始时的武器引用，如果该武器仍然有效
+            ItemAgent_Gun gunToRestore = null;
+            if (inspectingWeapon != null && inspectingWeapon.transform != null)
+            {
+                // 检查这个武器是否仍然是当前武器
+                var currentGun = mainCharacter.GetGun();
+                if (currentGun == inspectingWeapon)
+                {
+                    gunToRestore = inspectingWeapon;
+                }
+            }
+            
+            // 如果检视开始时的武器不再有效或不是当前武器，尝试获取当前武器
+            if (gunToRestore == null)
+            {
+                gunToRestore = mainCharacter.GetGun();
+            }
+            
+            // 如果仍然没有有效武器，无法恢复
+            if (gunToRestore == null || gunToRestore.transform == null) return;
+            
+            // 恢复武器位置和旋转
+            var gunTf = gunToRestore.transform;
             gunTf.localPosition = inspectOriginalLocalPos;
             gunTf.localRotation = inspectOriginalLocalRot;
         }
