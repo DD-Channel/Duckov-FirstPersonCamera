@@ -367,11 +367,12 @@ namespace FirstPersonCamera
             {
                 // 跳跃参数 - 现代FPS风格设计（已优化：减慢速度，防止穿墙）
                 // 参考：CS:GO, Valorant, Apex Legends等现代FPS游戏
-                float jumpHeight = 0.8f; // 跳跃高度（米）- 稍微提高高度，保持合理的跳跃感觉
-                float timeStep = 0.008f; // 时间步长（8ms，125fps更新频率），更平滑的跳跃
-                float maxJumpDuration = 0.6f; // 最大跳跃持续时间（秒）- 增加持续时间，减慢跳跃
-                float gravityMultiplier = 2.0f; // 重力倍数 - 降低重力，让跳跃更慢更平滑
-                int maxFrames = Mathf.CeilToInt(maxJumpDuration / timeStep);
+                float jumpHeight = 1.2f; // 跳跃高度（米）- 稍微提高高度，保持合理的跳跃感觉
+                float maxJumpDuration = 1f; // 最大跳跃持续时间（秒）- 增加持续时间，减慢跳跃
+                float gravityMultiplier = 1.6f; // 重力倍数 - 降低重力，让跳跃更慢更平滑
+                
+                // 高帧率优化：使用实际帧时间而非固定时间步长，避免与游戏循环不同步导致的抖动
+                // 使用固定时间步长会导致在144fps等高帧率下位置更新频率与游戏物理更新不匹配
                 
                 Vector3 startPosition = Vector3.zero;
                 Vector3 horizontalVelocity = Vector3.zero;
@@ -431,6 +432,9 @@ namespace FirstPersonCamera
                         horizontalSpeed = runSpeed * 0.5f;
                     }
                     
+                    // 增加跳跃距离：水平速度增加25%（1.25倍）
+                    horizontalSpeed = horizontalSpeed * 1.25f;
+                    
                     horizontalVelocity = horizontalDir * horizontalSpeed;
                 }
                 else if (horizontalSpeed > 0.1f)
@@ -466,6 +470,10 @@ namespace FirstPersonCamera
             bool hasStartedRising = false; // 标记是否已经开始上升
             float minJumpTime = 0.05f; // 最小跳跃时间（秒）
             
+            // 高帧率优化：记录上一帧的位置，用于平滑插值
+            Vector3 lastFramePosition = startPosition;
+            float lastUpdateTime = 0f;
+            
             // 立即设置初始速度，避免延迟
             // 在跳跃开始时立即应用初始垂直速度，让跳跃立即开始
             try
@@ -477,6 +485,7 @@ namespace FirstPersonCamera
                 Vector3 initialPos = mainCharacter.transform.position;
                 Vector3 initialJumpPos = initialPos + Vector3.up * 0.05f; // 立即向上移动一点，确保跳跃开始
                 mainCharacter.SetPosition(initialJumpPos);
+                lastFramePosition = initialJumpPos;
                 
                 FPLogger.Log("跳跃立即开始: 初始位置={0}, 水平速度={1}m/s", initialJumpPos, horizontalVelocity.magnitude);
             }
@@ -485,9 +494,16 @@ namespace FirstPersonCamera
                 FPLogger.LogException(ex, "跳跃初始化异常");
             }
             
-            // 使用速度系统：每帧计算速度并设置，让游戏的运动系统处理碰撞
-            for (int i = 0; i < maxFrames; i++)
+            // 高帧率优化：使用基于实际时间的循环，而不是固定帧数
+            // 这样可以确保在不同帧率下都有相同的物理行为
+            float startRealTime = Time.unscaledTime;
+            
+            while (elapsedTime < maxJumpDuration)
             {
+                // 等待下一帧，确保与游戏循环同步（高帧率优化）
+                // 使用yield return null保持更新频率，同时基于实际时间计算物理状态
+                yield return null;
+                
                 try
                 {
                     // 检查是否还在第一人称模式
@@ -526,8 +542,25 @@ namespace FirstPersonCamera
                         }
                     }
                     
-                    // 更新经过的时间（在第一帧时已经有一点时间了）
-                    elapsedTime += timeStep;
+                    // 高帧率优化：使用实际经过的时间，而不是固定时间步长
+                    // 这样可以确保在不同帧率下物理计算一致
+                    float currentRealTime = Time.unscaledTime;
+                    elapsedTime = currentRealTime - startRealTime;
+                    
+                    // 计算deltaTime（用于物理计算，但不是用于位置更新频率）
+                    float deltaTime = elapsedTime - lastUpdateTime;
+                    lastUpdateTime = elapsedTime;
+                    
+                    // 限制deltaTime，防止异常大的时间步长（比如游戏暂停后恢复）
+                    // 同时也限制最小值，避免在高帧率下deltaTime过小导致的数值不稳定
+                    if (deltaTime > 0.1f)
+                    {
+                        deltaTime = 0.016f; // 限制为约60fps的时间步长
+                    }
+                    else if (deltaTime < 0.001f)
+                    {
+                        deltaTime = 0.001f; // 限制最小时间步长，避免数值不稳定
+                    }
                     
                     // 计算当前垂直速度：v = v0 - g*t
                     float currentVerticalVelocity = initialVerticalVelocity - gravity * elapsedTime;
@@ -573,13 +606,13 @@ namespace FirstPersonCamera
                             if (movementControl.IsOnGround)
                             {
                                 shouldLand = true;
-                                FPLogger.Log("跳跃完成: 已落地 (时间 {0:F3}s, 帧 {1}, 垂直偏移 {2:F3}m, 地面检测)", elapsedTime, i, verticalOffset);
+                                FPLogger.Log("跳跃完成: 已落地 (时间 {0:F3}s, 垂直偏移 {1:F3}m, 地面检测)", elapsedTime, verticalOffset);
                             }
                             // 如果垂直偏移已经明显低于起始位置，也认为已落地
                             else if (verticalOffset < -0.05f && currentVerticalVelocity < -1f)
                             {
                                 shouldLand = true;
-                                FPLogger.Log("跳跃完成: 已落地 (时间 {0:F3}s, 帧 {1}, 垂直偏移 {2:F3}m, 物理计算)", elapsedTime, i, verticalOffset);
+                                FPLogger.Log("跳跃完成: 已落地 (时间 {0:F3}s, 垂直偏移 {1:F3}m, 物理计算)", elapsedTime, verticalOffset);
                             }
                         }
                         // 方法2：如果垂直速度向下且很小，并且已经明显超过最高点时间，检查是否在地面上
@@ -589,7 +622,7 @@ namespace FirstPersonCamera
                             if (movementControl.IsOnGround && verticalOffset < 0.1f)
                             {
                                 shouldLand = true;
-                                FPLogger.Log("跳跃完成: 已落地 (时间 {0:F3}s, 帧 {1}, 垂直速度 {2:F2}m/s, 延迟检测)", elapsedTime, i, currentVerticalVelocity);
+                                FPLogger.Log("跳跃完成: 已落地 (时间 {0:F3}s, 垂直速度 {1:F2}m/s, 延迟检测)", elapsedTime, currentVerticalVelocity);
                             }
                         }
                     }
@@ -610,7 +643,8 @@ namespace FirstPersonCamera
                     Vector3 targetPos = new Vector3(currentPos.x, startPosition.y + verticalOffset, currentPos.z);
                     
                     // 5. 碰撞检测：检查垂直方向是否有障碍物（只在上升阶段或明显移动时检测）
-                    float lastVerticalOffset = (i > 0) ? (initialVerticalVelocity * (elapsedTime - timeStep) - 0.5f * gravity * (elapsedTime - timeStep) * (elapsedTime - timeStep)) : 0f;
+                    // 高帧率优化：使用上一帧的垂直偏移，而不是计算lastVerticalOffset
+                    float lastVerticalOffset = lastFramePosition.y - startPosition.y;
                     float verticalDelta = verticalOffset - lastVerticalOffset;
                     
                     // 只在有明显垂直移动时进行碰撞检测，避免在接近地面时的频繁检测导致卡顿
@@ -640,11 +674,20 @@ namespace FirstPersonCamera
                         }
                     }
                     
-                    // 设置位置（垂直方向，水平位置已由速度系统更新）
-                    // 只有在没有触发落地时才设置位置
+                    // 高帧率优化：直接设置位置，但使用固定时间间隔减少更新频率
+                    // 这样可以避免在高帧率下过于频繁的位置更新导致的抖动
+                    // 同时保持物理计算的精确性（基于实际时间）
                     if (!shouldLand)
                     {
+                        // 直接设置位置（保持响应性，不使用平滑插值避免延迟）
+                        // 在高帧率下，位置更新频率会自然增加，但这不会导致抖动
+                        // 抖动的原因通常是位置更新与相机更新不同步，这里我们已经使用了yield return null确保同步
                         mainCharacter.SetPosition(targetPos);
+                        lastFramePosition = targetPos;
+                    }
+                    else
+                    {
+                        lastFramePosition = targetPos;
                     }
                     
                 }
@@ -653,9 +696,6 @@ namespace FirstPersonCamera
                     FPLogger.LogException(ex, "跳跃协程帧更新异常");
                     break;
                 }
-                
-                // 等待下一帧（必须在try-catch之外）
-                yield return new WaitForSeconds(timeStep);
             }
             
                 // 确保停止强制移动

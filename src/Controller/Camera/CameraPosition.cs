@@ -179,16 +179,14 @@ namespace FirstPersonCamera
                 }
                 else if (isJumping)
                 {
-                    // 跳跃时，禁用Y轴平滑，让相机立即跟随
+                    // 高帧率优化：跳跃时完全禁用防抖动系统，让相机立即跟随角色位置
+                    // 这样可以避免在高帧率下防抖动系统与位置更新不同步导致的抖动
                     antiBobCurrentY = devY;
                     antiBobVelY = 0f;
-                    // 水平轴仍然平滑
-                    float smoothTime = Mathf.Lerp(ANTI_BOB_SMOOTH_MIN, ANTI_BOB_SMOOTH_MAX, 
-                        Mathf.Clamp01(antiBobStrength));
-                    antiBobCurrentLat = Mathf.SmoothDamp(antiBobCurrentLat, devLat, ref antiBobVelLat, 
-                        smoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
-                    antiBobCurrentFwd = Mathf.SmoothDamp(antiBobCurrentFwd, devFwd, ref antiBobVelFwd, 
-                        smoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
+                    antiBobCurrentLat = devLat;
+                    antiBobVelLat = 0f;
+                    antiBobCurrentFwd = devFwd;
+                    antiBobVelFwd = 0f;
                 }
                 else
                 {
