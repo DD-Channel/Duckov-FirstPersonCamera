@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using FirstPersonCamera.Utilities;
 
 namespace FirstPersonCamera
 {
@@ -398,7 +399,7 @@ namespace FirstPersonCamera
             catch (System.Exception ex)
             {
                 // 反射访问失败，使用后备方案：隐藏整个角色模型（除了武器Socket）
-                UnityEngine.Debug.LogWarning($"[FirstPersonCamera] HideCharacterModelBodyParts失败，使用后备方案: {ex.Message}");
+                FPLogger.LogWarning("HideCharacterModelBodyParts失败，使用后备方案: {0}", ex.Message);
                 try
                 {
                     // 后备方案：隐藏角色模型根Transform下的所有渲染器，但排除武器Socket
@@ -615,7 +616,7 @@ namespace FirstPersonCamera
             catch (System.Exception ex)
             {
                 // 反射访问失败，使用后备方案
-                UnityEngine.Debug.LogWarning($"[FirstPersonCamera] HideFacePartViaReflection失败，使用后备方案: {ex.Message}");
+                FPLogger.LogWarning("HideFacePartViaReflection失败，使用后备方案: {0}", ex.Message);
                 try
                 {
                     var partInstanceProperty = partUtil.GetType().GetProperty(ReflectionPropertyNamePartInstance);

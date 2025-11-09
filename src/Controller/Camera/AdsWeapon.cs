@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
+using FirstPersonCamera.Utilities;
 
 namespace FirstPersonCamera
 {
@@ -681,7 +682,7 @@ namespace FirstPersonCamera
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[FirstPersonCamera] Failed to create ADS hint UI: {ex}");
+                FPLogger.LogException(ex, "Failed to create ADS hint UI");
                 if (adsHintCanvas != null)
                 {
                     Object.Destroy(adsHintCanvas);

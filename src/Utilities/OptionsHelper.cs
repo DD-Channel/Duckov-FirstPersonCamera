@@ -1,5 +1,6 @@
 using Duckov.Options;
 using UnityEngine;
+using FirstPersonCamera.Utilities;
 
 namespace FirstPersonCamera.Utilities
 {
@@ -171,7 +172,7 @@ namespace FirstPersonCamera.Utilities
             }
             catch (System.Exception ex)
             {
-                UnityEngine.Debug.LogWarning($"[FirstPersonCamera] 应用配置变更失败 ({key}): {ex.Message}");
+                FPLogger.LogWarning("应用配置变更失败 ({0}): {1}", key, ex.Message);
             }
         }
 
@@ -204,7 +205,7 @@ namespace FirstPersonCamera.Utilities
                 }
                 catch (System.Exception ex)
                 {
-                    UnityEngine.Debug.LogWarning($"[FirstPersonCamera] OnOptionsChanged调用失败 ({key}): {ex.Message}");
+                    FPLogger.LogWarning("OnOptionsChanged调用失败 ({0}): {1}", key, ex.Message);
                 }
                 
                 // 如果OnOptionsChanged没有成功调用，或者对于某些特殊选项，使用后备逻辑
@@ -269,11 +270,11 @@ namespace FirstPersonCamera.Utilities
                                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.Invoke(controller, null);
                                 controller.GetType().GetMethod("HideFirstPersonObstructions", 
                                     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.Invoke(controller, null);
-                                UnityEngine.Debug.Log($"[FirstPersonCamera] 已重新应用部位隐藏逻辑 ({key})");
+                                FPLogger.Log("已重新应用部位隐藏逻辑 ({0})", key);
                             }
                             catch (System.Exception ex)
                             {
-                                UnityEngine.Debug.LogError($"[FirstPersonCamera] 重新应用部位隐藏失败 ({key}): {ex.Message}");
+                                FPLogger.LogException(ex, string.Format("重新应用部位隐藏失败 ({0})", key));
                             }
                         }
                     }
@@ -281,7 +282,7 @@ namespace FirstPersonCamera.Utilities
             }
             catch (System.Exception ex)
             {
-                UnityEngine.Debug.LogError($"[FirstPersonCamera] ApplyToggleSetting失败 ({key}): {ex.Message}");
+                FPLogger.LogException(ex, string.Format("ApplyToggleSetting失败 ({0})", key));
             }
         }
     }

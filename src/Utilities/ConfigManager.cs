@@ -5,6 +5,7 @@ using UnityEngine;
 using System.Text;
 using System.Linq;
 using Newtonsoft.Json;
+using FirstPersonCamera.Utilities;
 
 namespace FirstPersonCamera.Utilities
 {
@@ -142,7 +143,7 @@ namespace FirstPersonCamera.Utilities
                     // 确保目标目录可写
                     if (!TryEnsureWritable(finalDir))
                     {
-                        Debug.LogError("[FirstPersonCamera] 无法创建配置文件目录: " + finalDir);
+                        FPLogger.LogError("无法创建配置文件目录: " + finalDir);
                         finalDir = legacyPersistentDir;
                         TryEnsureWritable(finalDir); // 尽力创建备用目录
                     }
@@ -159,11 +160,11 @@ namespace FirstPersonCamera.Utilities
                             { 
                                 Directory.CreateDirectory(finalDir); 
                                 File.Copy(legacyModsFile, configFilePath, overwrite: false);
-                                Debug.Log("[FirstPersonCamera] 已从Mods目录迁移配置文件");
+                                FPLogger.Log("已从Mods目录迁移配置文件");
                             }
                             catch (Exception ex) 
                             { 
-                                Debug.LogWarning($"[FirstPersonCamera] 从Mods目录迁移配置失败: {ex.Message}");
+                                FPLogger.LogWarning("从Mods目录迁移配置失败: {0}", ex.Message);
                             }
                         }
                         // 其次从PersistentDataPath迁移
@@ -173,11 +174,11 @@ namespace FirstPersonCamera.Utilities
                             { 
                                 Directory.CreateDirectory(finalDir); 
                                 File.Copy(legacyPersistentFile, configFilePath, overwrite: false);
-                                Debug.Log("[FirstPersonCamera] 已从PersistentDataPath迁移配置文件");
+                                FPLogger.Log("已从PersistentDataPath迁移配置文件");
                             }
                             catch (Exception ex) 
                             { 
-                                Debug.LogWarning($"[FirstPersonCamera] 从PersistentDataPath迁移配置失败: {ex.Message}");
+                                FPLogger.LogWarning("从PersistentDataPath迁移配置失败: {0}", ex.Message);
                             }
                         }
                     }
@@ -185,14 +186,14 @@ namespace FirstPersonCamera.Utilities
                     // 加载现有配置
                     LoadConfig();
                     
-                    Debug.Log($"[FirstPersonCamera] 配置文件路径: {configFilePath}");
-                    Debug.Log($"[FirstPersonCamera] 已加载 {configData.Count} 个配置项");
+                    FPLogger.Log("配置文件路径: {0}", configFilePath);
+                    FPLogger.Log("已加载 {0} 个配置项", configData.Count);
 
                     initialized = true;
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"[FirstPersonCamera] 配置管理器初始化失败: {ex.Message}");
+                    FPLogger.LogError("配置管理器初始化失败: {0}", ex.Message);
                     configData = new Dictionary<string, object>();
                     
                     // 即使初始化失败，也尝试设置一个默认路径
@@ -204,13 +205,13 @@ namespace FirstPersonCamera.Utilities
                             string localLowPath = Path.Combine(userProfile, "AppData", "LocalLow");
                             string finalDir = Path.Combine(localLowPath, "TeamSoda", "Duckov", "FirstPersonCamera");
                             configFilePath = Path.Combine(finalDir, "config.json");
-                            Debug.LogWarning($"[FirstPersonCamera] 使用默认配置文件路径: {configFilePath}");
+                            FPLogger.LogWarning("使用默认配置文件路径: {0}", configFilePath);
                         }
                         catch
                         {
                             // 如果连默认路径都设置失败，使用临时路径
                             configFilePath = Path.Combine(Application.persistentDataPath, "FirstPersonCamera", "config.json");
-                            Debug.LogWarning($"[FirstPersonCamera] 使用备用配置文件路径: {configFilePath}");
+                            FPLogger.LogWarning("使用备用配置文件路径: {0}", configFilePath);
                         }
                     }
                     
@@ -256,13 +257,13 @@ namespace FirstPersonCamera.Utilities
                                 configData[entry.key] = entry.GetValue();
                             }
                         }
-                        Debug.Log($"[FirstPersonCamera] 使用Newtonsoft.Json加载了 {configData.Count} 个配置项");
+                        FPLogger.Log("使用Newtonsoft.Json加载了 {0} 个配置项", configData.Count);
                         return;
                     }
                 }
                 catch (Exception jsonEx)
                 {
-                    Debug.LogWarning($"[FirstPersonCamera] Newtonsoft.Json反序列化失败，尝试其他方法: {jsonEx.Message}");
+                    FPLogger.LogWarning("Newtonsoft.Json反序列化失败，尝试其他方法: {0}", jsonEx.Message);
                 }
                 
                 // 尝试使用JsonUtility解析（兼容旧格式）
@@ -278,7 +279,7 @@ namespace FirstPersonCamera.Utilities
                                 configData[entry.key] = entry.GetValue();
                             }
                         }
-                        Debug.Log($"[FirstPersonCamera] 使用JsonUtility加载了 {configData.Count} 个配置项");
+                        FPLogger.Log("使用JsonUtility加载了 {0} 个配置项", configData.Count);
                         return;
                     }
                 }
@@ -342,11 +343,11 @@ namespace FirstPersonCamera.Utilities
                         searchPos = typeEnd + 1;
                     }
                     
-                    Debug.Log($"[FirstPersonCamera] 手动解析JSON加载了 {entryCount} 个配置项");
+                    FPLogger.Log("手动解析JSON加载了 {0} 个配置项", entryCount);
                 }
                 catch (Exception parseEx)
                 {
-                    Debug.LogError($"[FirstPersonCamera] 手动解析JSON失败: {parseEx.Message}");
+                    FPLogger.LogError("手动解析JSON失败: {0}", parseEx.Message);
                     // 如果手动解析也失败，尝试JsonUtility作为后备
                     try
                     {
@@ -367,7 +368,7 @@ namespace FirstPersonCamera.Utilities
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[FirstPersonCamera] 加载配置文件失败: {ex.Message}\n堆栈: {ex.StackTrace}");
+                FPLogger.LogException(ex, "加载配置文件失败");
                 configData = new Dictionary<string, object>();
             }
         }
@@ -497,7 +498,7 @@ namespace FirstPersonCamera.Utilities
         {
             if (string.IsNullOrEmpty(configFilePath))
             {
-                Debug.LogWarning("[FirstPersonCamera] 配置文件路径为空，无法保存");
+                FPLogger.LogWarning("配置文件路径为空，无法保存");
                 return;
             }
 
@@ -508,7 +509,7 @@ namespace FirstPersonCamera.Utilities
                 if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 {
                     Directory.CreateDirectory(directory);
-                    Debug.Log($"[FirstPersonCamera] 创建配置目录: {directory}");
+                    FPLogger.Log("创建配置目录: {0}", directory);
                 }
 
                 // 转换为可序列化的容器
@@ -543,12 +544,12 @@ namespace FirstPersonCamera.Utilities
                 // 检查是否有数据
                 if (container.entries == null || container.entries.Count == 0)
                 {
-                    Debug.LogWarning($"[FirstPersonCamera] 配置数据为空，跳过保存。configData.Count={configData.Count}");
+                    FPLogger.LogWarning("配置数据为空，跳过保存。configData.Count={0}", configData.Count);
                     return;
                 }
 
                 // 调试：输出配置数据信息
-                Debug.Log($"[FirstPersonCamera] 准备保存配置，条目数: {container.entries.Count}");
+                FPLogger.Log("准备保存配置，条目数: {0}", container.entries.Count);
                 
                 string jsonContent;
                 
@@ -561,11 +562,11 @@ namespace FirstPersonCamera.Utilities
                         NullValueHandling = NullValueHandling.Ignore
                     };
                     jsonContent = JsonConvert.SerializeObject(container, settings);
-                    Debug.Log($"[FirstPersonCamera] 使用Newtonsoft.Json序列化成功，JSON长度: {jsonContent.Length} 字符");
+                    FPLogger.Log("使用Newtonsoft.Json序列化成功，JSON长度: {0} 字符", jsonContent.Length);
                 }
                 catch (Exception jsonEx)
                 {
-                    Debug.LogWarning($"[FirstPersonCamera] Newtonsoft.Json序列化失败，回退到手动构建: {jsonEx.Message}");
+                    FPLogger.LogWarning("Newtonsoft.Json序列化失败，回退到手动构建: {0}", jsonEx.Message);
                     // 回退到手动构建JSON
                     jsonContent = BuildJsonManually(container);
                 }
@@ -579,33 +580,33 @@ namespace FirstPersonCamera.Utilities
                     long fileSize = new FileInfo(configFilePath).Length;
                     if (fileSize > 0)
                     {
-                        Debug.Log($"[FirstPersonCamera] 配置文件保存成功: {configFilePath} (大小: {fileSize} 字节)");
+                        FPLogger.Log("配置文件保存成功: {0} (大小: {1} 字节)", configFilePath, fileSize);
                     }
                     else
                     {
-                        Debug.LogError("[FirstPersonCamera] 配置文件已创建但大小为0");
+                        FPLogger.LogError("配置文件已创建但大小为0");
                     }
                 }
                 else
                 {
-                    Debug.LogError("[FirstPersonCamera] 配置文件写入失败，文件不存在");
+                    FPLogger.LogError("配置文件写入失败，文件不存在");
                 }
             }
             catch (UnauthorizedAccessException ex)
             {
-                Debug.LogError($"[FirstPersonCamera] 保存配置文件失败（权限不足）: {ex.Message}\n路径: {configFilePath}");
+                FPLogger.LogException(ex, string.Format("保存配置文件失败（权限不足），路径: {0}", configFilePath));
             }
             catch (DirectoryNotFoundException ex)
             {
-                Debug.LogError($"[FirstPersonCamera] 保存配置文件失败（目录不存在）: {ex.Message}\n路径: {configFilePath}");
+                FPLogger.LogException(ex, string.Format("保存配置文件失败（目录不存在），路径: {0}", configFilePath));
             }
             catch (IOException ex)
             {
-                Debug.LogError($"[FirstPersonCamera] 保存配置文件失败（IO错误）: {ex.Message}\n路径: {configFilePath}");
+                FPLogger.LogException(ex, string.Format("保存配置文件失败（IO错误），路径: {0}", configFilePath));
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[FirstPersonCamera] 保存配置文件失败: {ex.Message}\n路径: {configFilePath}\n堆栈: {ex.StackTrace}");
+                FPLogger.LogException(ex, string.Format("保存配置文件失败，路径: {0}", configFilePath));
             }
         }
         #endregion
@@ -658,7 +659,7 @@ namespace FirstPersonCamera.Utilities
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"[FirstPersonCamera] 加载配置键 '{key}' 失败: {ex.Message}");
+                    FPLogger.LogException(ex, string.Format("加载配置键 '{0}' 失败", key));
                     
                     // 加载失败时，如果启用保持当前值，尝试从缓存获取
                     if (keepCurrentOnError && currentValueCache.TryGetValue(key, out object cachedValue))
@@ -703,7 +704,7 @@ namespace FirstPersonCamera.Utilities
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"[FirstPersonCamera] 保存配置键 '{key}' 失败: {ex.Message}");
+                    FPLogger.LogException(ex, string.Format("保存配置键 '{0}' 失败", key));
                 }
             }
         }
@@ -829,7 +830,7 @@ namespace FirstPersonCamera.Utilities
                 // 保存到文件
                 SaveConfig();
                 
-                Debug.Log($"[FirstPersonCamera] SaveAll完成：保存了 {configData.Count} 个配置项");
+                FPLogger.Log("SaveAll完成：保存了 {0} 个配置项", configData.Count);
             }
         }
         #endregion

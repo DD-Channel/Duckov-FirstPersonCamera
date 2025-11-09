@@ -643,7 +643,7 @@ namespace FirstPersonCamera.StandaloneUI
         {
             if (canvas == null)
             {
-                Debug.LogError("[FirstPersonCamera] Canvas 为空，无法设置可见性！");
+                FPLogger.LogError("Canvas 为空，无法设置可见性！");
                 return;
             }
 
@@ -654,7 +654,7 @@ namespace FirstPersonCamera.StandaloneUI
                 if (transform != null && !transform.gameObject.activeSelf)
                 {
                     transform.gameObject.SetActive(true);
-                    Debug.Log("[FirstPersonCamera] 激活了设置窗口的父对象");
+                    FPLogger.Log("激活了设置窗口的父对象");
                 }
                 
                 // 确保 Canvas 激活
@@ -667,7 +667,7 @@ namespace FirstPersonCamera.StandaloneUI
                 if (windowPanel != null && !windowPanel.activeSelf)
                 {
                     windowPanel.SetActive(true);
-                    Debug.Log("[FirstPersonCamera] 激活了窗口面板");
+                    FPLogger.Log("激活了窗口面板");
                 }
                 
                 // 确保窗口在最上层
@@ -683,7 +683,9 @@ namespace FirstPersonCamera.StandaloneUI
                     ShowTab("Basic");
                 }
                 
-                Debug.Log($"[FirstPersonCamera] 设置窗口已显示 - 父对象: {transform.gameObject.activeSelf}, Canvas: {canvas.gameObject.activeSelf}, Canvas.enabled: {canvas.enabled}, 排序: {canvas.sortingOrder}, 窗口面板: {(windowPanel != null ? windowPanel.activeSelf.ToString() : "null")}");
+                FPLogger.Log("设置窗口已显示 - 父对象: {0}, Canvas: {1}, Canvas.enabled: {2}, 排序: {3}, 窗口面板: {4}", 
+                    transform.gameObject.activeSelf, canvas.gameObject.activeSelf, canvas.enabled, canvas.sortingOrder, 
+                    (windowPanel != null ? windowPanel.activeSelf.ToString() : "null"));
             }
             else
             {
@@ -747,7 +749,7 @@ namespace FirstPersonCamera.StandaloneUI
             
             // 保存所有配置项（包括默认值）
             ConfigManager.SaveAll();
-            Debug.Log("[FirstPersonCamera] UI初始化完成，已保存所有配置项（包括默认值）");
+            FPLogger.Log("UI初始化完成，已保存所有配置项（包括默认值）");
         }
         #endregion
     }

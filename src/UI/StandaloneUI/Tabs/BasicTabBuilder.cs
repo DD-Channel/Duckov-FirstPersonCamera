@@ -43,6 +43,7 @@ namespace FirstPersonCamera.StandaloneUI.Tabs
             StandaloneUICreator.CreateSliderRow(parent, "后坐力强度", OptionsUIConstants.RecoilStrengthKey,
                 OptionsUIConstants.RecoilStrengthMin, OptionsUIConstants.RecoilStrengthMax, OptionsUIConstants.RecoilStrengthDefault, sliders);
             StandaloneUICreator.CreateToggleRow(parent, "启用ADS武器位移", OptionsUIConstants.EnableAdsOffsetKey, true, toggles);
+            StandaloneUICreator.CreateToggleRow(parent, "启用跳跃功能", OptionsUIConstants.EnableJumpKey, false, toggles);
             StandaloneUICreator.CreateDivider(parent);
 
             // 受击特效（归于基础视觉）

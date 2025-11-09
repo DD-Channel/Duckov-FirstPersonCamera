@@ -247,17 +247,19 @@ namespace FirstPersonCamera
             OptionsManager.OnOptionsChanged -= OnOptionsChanged;
             UnhookHealthBarEvents();
             if (isFirstPersonMode) DisableFirstPerson();
+            // 确保恢复跳跃输入绑定
+            try { RestoreJumpInput(); } catch { }
             if (ReferenceEquals(Instance, this)) Instance = null;
 
             // 保存所有配置数据（包括动态保存的数据，如武器偏移等）
             try
             {
                 FirstPersonCamera.Utilities.ConfigManager.SaveAll();
-                Debug.Log("[FirstPersonCamera] 控制器销毁前已保存所有配置数据");
+                FPLogger.Log("控制器销毁前已保存所有配置数据");
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[FirstPersonCamera] 保存配置数据失败: {ex.Message}");
+                FPLogger.LogException(ex, "保存配置数据失败");
             }
 
             // 安全恢复：如果未恢复则在此恢复
@@ -354,6 +356,50 @@ namespace FirstPersonCamera
                 
                 // 检测统一检视按键（根据武器类型自动选择枪械或近战检视）
                 UpdateUnifiedInspectInput(uiBlocking);
+                
+                // 检查跳跃设置变化并更新输入绑定
+                try
+                {
+                    if (IsJumpEnabled())
+                    {
+                        // 如果启用了跳跃但还没有设置输入，则设置（仅新输入系统）
+                        if (useNewInputSystem && (jumpAction == null || !dashBindingModified))
+                        {
+                            SetupJumpInput();
+                        }
+                    }
+                    else
+                    {
+                        // 如果禁用了跳跃但已经设置了输入，则恢复
+                        if (jumpAction != null || dashBindingModified)
+                        {
+                            RestoreJumpInput();
+                        }
+                    }
+                    
+                    // 旧输入系统的跳跃检测（作为兜底）
+                    // 关键修复：即使新输入系统可用，如果jumpAction未创建成功，也要使用旧输入系统检测
+                    // 这样可以确保即使SetupJumpInput()失败（如playerInput为null、Dash动作未找到等），跳跃功能仍然可用
+                    if (IsJumpEnabled() && !uiBlocking)
+                    {
+                        // 如果使用新输入系统但jumpAction未创建，或者使用旧输入系统，都使用旧输入系统检测
+                        bool shouldUseOldInputSystem = !useNewInputSystem || (useNewInputSystem && jumpAction == null);
+                        
+                        if (shouldUseOldInputSystem && Input.GetKeyDown(KeyCode.Space))
+                        {
+                            if (useNewInputSystem && jumpAction == null)
+                            {
+                                FPLogger.LogWarning("新输入系统下jumpAction未创建，使用旧输入系统兜底检测跳跃输入（空格键）");
+                            }
+                            else
+                            {
+                                FPLogger.Log("旧输入系统检测到跳跃输入（空格键）");
+                            }
+                            DoJump();
+                        }
+                    }
+                }
+                catch { }
                 
                 // 检测鼠标左键状态，判断是否停止射击
                 bool mousePressed = false;
@@ -643,6 +689,9 @@ namespace FirstPersonCamera
             // 启动辅助协程
             if (alignAimRoutine == null) alignAimRoutine = StartCoroutine(AlignAimRoutine());
             if (deferredInitRoutine == null) deferredInitRoutine = StartCoroutine(DeferredFirstPersonInit());
+
+            // 设置跳跃输入绑定
+            try { SetupJumpInput(); } catch { }
         }
 
         /// <summary>
@@ -693,6 +742,9 @@ namespace FirstPersonCamera
                 }
             }
             catch { }
+
+            // 恢复跳跃输入绑定
+            try { RestoreJumpInput(); } catch { }
         }
         #endregion
 

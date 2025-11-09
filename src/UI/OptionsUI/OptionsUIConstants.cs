@@ -277,6 +277,11 @@ namespace FirstPersonCamera
         public const string InspectKeyCodeKey = "FirstPersonCamera_InspectKeyCode";
         
         /// <summary>
+        /// 选项键：启用跳跃功能
+        /// </summary>
+        public const string EnableJumpKey = "FirstPersonCamera_EnableJump";
+        
+        /// <summary>
         /// 选项键：UI检视时间（秒）
         /// </summary>
         public const string UIInspectDurationKey = "FirstPersonCamera_UIInspectDuration";

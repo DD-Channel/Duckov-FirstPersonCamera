@@ -2,6 +2,7 @@ using UnityEngine;
 using Duckov.Modding;
 using Duckov.Scenes;
 using HarmonyLib;
+using FirstPersonCamera.Utilities;
 
 namespace FirstPersonCamera
 {
@@ -15,7 +16,7 @@ namespace FirstPersonCamera
 
         protected override void OnAfterSetup()
         {
-            Debug.Log("[FirstPersonCamera] Mod已加载！");
+            FPLogger.Log("Mod已加载！");
 
             DontDestroyOnLoad(gameObject);
 
@@ -24,11 +25,11 @@ namespace FirstPersonCamera
             {
                 var harmony = new Harmony("firstpersoncamera.aimpatch");
                 harmony.PatchAll();
-                Debug.Log("[FirstPersonCamera] Harmony 补丁已安装");
+                FPLogger.Log("Harmony 补丁已安装");
             }
             catch (System.Exception ex)
             {
-                Debug.LogError("[FirstPersonCamera] 安装 Harmony 失败: " + ex);
+                FPLogger.LogException(ex, "安装 Harmony 失败");
             }
 
             // 监听场景事件
@@ -48,18 +49,25 @@ namespace FirstPersonCamera
 
         protected override void OnBeforeDeactivate()
         {
-            Debug.Log("[FirstPersonCamera] Mod正在卸载...");
+            FPLogger.Log("Mod正在卸载...");
 
             // 保存所有配置数据（包括动态保存的数据）
             try
             {
                 FirstPersonCamera.Utilities.ConfigManager.SaveAll();
-                Debug.Log("[FirstPersonCamera] Mod卸载前已保存所有配置数据");
+                FPLogger.Log("Mod卸载前已保存所有配置数据");
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[FirstPersonCamera] 保存配置数据失败: {ex.Message}");
+                FPLogger.LogException(ex, "保存配置数据失败");
             }
+            
+            // 关闭日志系统
+            try
+            {
+                FPLogger.Shutdown();
+            }
+            catch { }
 
             // 取消事件监听
             SceneLoader.onAfterSceneInitialize -= OnSceneInitialized;
@@ -125,25 +133,25 @@ namespace FirstPersonCamera
             {
                 fpsController = gameObject.AddComponent<FirstPersonCameraController>();
                 isInitialized = true;
-                Debug.Log("[FirstPersonCamera] 相机控制器已初始化");
+                FPLogger.Log("相机控制器已初始化");
             }
 
             // 初始化独立UI系统
             try
             {
                 StandaloneUI.StandaloneOptionsWindow.Instance.SetVisible(false);
-                Debug.Log("[FirstPersonCamera] 独立UI系统已初始化");
+                FPLogger.Log("独立UI系统已初始化");
             }
             catch (System.Exception ex)
             {
-                Debug.LogError("[FirstPersonCamera] 初始化独立UI系统失败: " + ex);
+                FPLogger.LogException(ex, "初始化独立UI系统失败");
             }
             
             // 初始化简化版UI（只在原版设置中添加一个打开按钮）
             if (gameObject.GetComponent<FirstPersonOptionsUI>() == null)
             {
                 gameObject.AddComponent<FirstPersonOptionsUI>();
-                Debug.Log("[FirstPersonCamera] 简化版UI系统已初始化");
+                FPLogger.Log("简化版UI系统已初始化");
             }
         }
     }

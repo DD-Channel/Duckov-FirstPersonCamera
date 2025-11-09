@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using FirstPersonCamera.Utilities;
 using Duckov.Options;
 using Duckov.Options.UI;
 using System.Reflection;
@@ -187,21 +188,21 @@ namespace FirstPersonCamera
                     try
                     {
                         ev.Use(); // 阻止默认行为，避免触发标签页切换
-                        Debug.Log("[FirstPersonCamera] 点击第一人称相机按钮，准备打开设置窗口");
+                        FPLogger.Log("点击第一人称相机按钮，准备打开设置窗口");
                         var window = StandaloneOptionsWindow.Instance;
                         if (window != null)
                         {
                             window.Show();
-                            Debug.Log("[FirstPersonCamera] 设置窗口已调用Show()");
+                            FPLogger.Log("设置窗口已调用Show()");
                         }
                         else
                         {
-                            Debug.LogError("[FirstPersonCamera] StandaloneOptionsWindow.Instance 为空");
+                            FPLogger.LogError("StandaloneOptionsWindow.Instance 为空");
                         }
                     }
                     catch (System.Exception ex)
                     {
-                        Debug.LogError($"[FirstPersonCamera] 打开设置窗口失败: {ex}");
+                        FPLogger.LogException(ex, "打开设置窗口失败");
                     }
                 };
 
@@ -209,11 +210,11 @@ namespace FirstPersonCamera
                 tabButtons.Add(newTabButton);
 
                 buttonInjected = true;
-                Debug.Log("[FirstPersonCamera] 已在原版设置中添加第一人称相机标签页按钮");
+                FPLogger.Log("已在原版设置中添加第一人称相机标签页按钮");
             }
             catch (System.Exception ex)
             {
-                Debug.LogError("[FirstPersonCamera] 注入打开设置按钮失败: " + ex);
+                FPLogger.LogException(ex, "注入打开设置按钮失败");
             }
         }
 

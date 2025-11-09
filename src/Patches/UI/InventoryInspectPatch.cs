@@ -7,6 +7,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using FirstPersonCamera.Utilities;
 
 namespace FirstPersonCamera.Patches.UI
 {
@@ -141,7 +142,7 @@ namespace FirstPersonCamera.Patches.UI
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError("[FirstPersonCamera] Inspect button click failed: " + ex);
+                    FPLogger.LogException(ex, "Inspect button click failed");
                     try { owner?.Close(); } catch { }
                 }
             }
@@ -239,7 +240,7 @@ namespace FirstPersonCamera.Patches.UI
             }
             catch (Exception ex)
             {
-                Debug.LogError("[FirstPersonCamera] Failed to init InspectMenuExtension: " + ex);
+                FPLogger.LogException(ex, "Failed to init InspectMenuExtension");
             }
         }
 
@@ -259,7 +260,7 @@ namespace FirstPersonCamera.Patches.UI
             }
             catch (Exception ex)
             {
-                Debug.LogError("[FirstPersonCamera] Failed to refresh Inspect button: " + ex);
+                FPLogger.LogException(ex, "Failed to refresh Inspect button");
             }
         }
     }
