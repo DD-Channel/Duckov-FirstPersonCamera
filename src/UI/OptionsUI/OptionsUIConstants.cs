@@ -11,7 +11,7 @@ namespace FirstPersonCamera
         /// 模组版本号
         /// 更新版本时只需修改此处
         /// </summary>
-        public const string ModVersion = "1.1.0";
+        public const string ModVersion = "1.2.0";
         #endregion
 
         #region 灵敏度选项键
@@ -240,6 +240,11 @@ namespace FirstPersonCamera
         /// 选项键：禁用遮挡透视
         /// </summary>
         public const string DisableSeeThroughKey = "FirstPersonCamera_DisableSeeThrough";
+        
+        /// <summary>
+        /// 选项键：第一人称下去除战争迷雾
+        /// </summary>
+        public const string DisableFogOfWarKey = "FirstPersonCamera_DisableFogOfWar";
         
         /// <summary>
         /// 选项键：后坐力强度

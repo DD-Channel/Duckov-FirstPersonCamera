@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <!-- 在这里设置你的鸭科夫游戏安装路径 -->
+    <!-- 此文件不会被提交到 Git 仓库，每个开发者可以有自己的配置 -->
+    <!-- 复制此文件为 FirstPersonCamera.csproj.user 并修改路径 -->
+    <!-- 示例路径（Windows）: -->
+    <DuckovPath>C:\Program Files (x86)\Steam\steamapps\common\Escape from Duckov</DuckovPath>
+    <!-- 示例路径（Mac）: ~/Library/Application Support/Steam/steamapps/common/Escape from Duckov -->
+    <!-- 示例路径（Linux）: ~/.steam/steam/steamapps/common/Escape from Duckov -->
+  </PropertyGroup>
+</Project>
+

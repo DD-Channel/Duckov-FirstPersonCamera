@@ -7,7 +7,13 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <!-- This should be the folder that contains Duckov.exe -->
     <!-- 下面这行里填写你的鸭科夫安装路径，这样编译器就能找到相关的dll文件 -->
-    <DuckovPath>D:\software\steam\steamapps\common\Escape from Duckov</DuckovPath>
+    <!-- 可以通过环境变量 DuckovPath 设置，或创建 FirstPersonCamera.csproj.user 文件来覆盖此路径 -->
+    <!-- 示例路径（Windows）: C:\Program Files (x86)\Steam\steamapps\common\Escape from Duckov -->
+    <!-- 示例路径（Mac）: ~/Library/Application Support/Steam/steamapps/common/Escape from Duckov -->
+    <!-- 示例路径（Linux）: ~/.steam/steam/steamapps/common/Escape from Duckov -->
+    <!-- 如果环境变量 DuckovPath 未设置，将使用下面的默认路径 -->
+    <!-- 推荐方式：创建 FirstPersonCamera.csproj.user 文件（此文件不会被提交到 Git）来设置你的本地路径 -->
+    <DuckovPath Condition="'$(DuckovPath)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Escape from Duckov</DuckovPath>
   </PropertyGroup>
   <ItemGroup>
     <!-- Include all source files from src/ directory -->

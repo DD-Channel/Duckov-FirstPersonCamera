@@ -35,6 +35,7 @@ namespace FirstPersonCamera.StandaloneUI.Tabs
             StandaloneUICreator.CreateToggleRow(parent, "禁用模糊后处理", OptionsUIConstants.DisableBlurKey, false, toggles);
             StandaloneUICreator.CreateToggleRow(parent, "禁用遮挡透视", OptionsUIConstants.DisableSeeThroughKey, false, toggles);
             StandaloneUICreator.CreateToggleRow(parent, "禁用瞄准虚化", OptionsUIConstants.DisableAimOcclusionFadeKey, false, toggles);
+            StandaloneUICreator.CreateToggleRow(parent, "去除战争迷雾", OptionsUIConstants.DisableFogOfWarKey, false, toggles);
             StandaloneUICreator.CreateDivider(parent);
 
             // 战斗设置（基础归类）

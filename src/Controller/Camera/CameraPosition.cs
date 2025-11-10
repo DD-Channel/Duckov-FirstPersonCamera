@@ -116,9 +116,6 @@ namespace FirstPersonCamera
             // 应用前后和左右偏移
             basePos += forward * cameraForwardOffset + right * cameraRightOffset;
 
-            // 应用偏头偏移
-            basePos += right * peekOffset * peekMaxOffset;
-
             // 相机防抖动：当强度>0时对Y轴和水平轴进行平滑
             if (antiBobStrength > ANTI_BOB_STRENGTH_THRESHOLD)
             {
@@ -126,13 +123,13 @@ namespace FirstPersonCamera
                 Vector3 rightFlat = Quaternion.Euler(0f, yaw, 0f) * Vector3.right;
                 Vector3 forwardFlat = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
 
-                // 锚点：角色根节点 + 固定偏移 + 偏头（不包含头部动画产生的抖动）
+                // 锚点：角色根节点 + 固定偏移（不包含头部动画产生的抖动，也不包含偏头偏移）
+                // 注意：偏头偏移不应该包含在锚点中，因为它不是头部动画，而是用户输入
                 Vector3 rootPos = (mainCharacter != null ? mainCharacter.transform.position : basePos);
                 Vector3 rotFwd = rot * Vector3.forward;
                 Vector3 anchor = rootPos + Vector3.up * (1.7f + cameraHeightOffset)
                                   + rotFwd * cameraForwardOffset
-                                  + rightFlat * cameraRightOffset
-                                  + rightFlat * (peekOffset * peekMaxOffset);
+                                  + rightFlat * cameraRightOffset;
 
                 // 计算头部动画引入的局部偏移（这是需要平滑的抖动）
                 Vector3 dev = basePos - anchor;
@@ -214,6 +211,10 @@ namespace FirstPersonCamera
                 // 防抖动关闭时，重置初始化状态
                 antiBobInitialized = false;
             }
+
+            // 应用偏头偏移（在所有计算之后，作为最终偏移应用）
+            // 这样偏头偏移不会影响防抖动系统的计算，避免在跳跃时偏头导致视野闪动
+            basePos += right * peekOffset * peekMaxOffset;
 
             // 应用最终位置
             mainCamera.transform.position = basePos;

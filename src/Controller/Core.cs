@@ -552,6 +552,12 @@ namespace FirstPersonCamera
                 obstructionCheckFrameCounter = 0;
                 try { HideFirstPersonObstructions(); } catch { }
             }
+            
+            // 定期更新战争迷雾状态（降低频率以提高性能）
+            if (obstructionCheckFrameCounter == 0) // 复用计数器，每N帧更新一次
+            {
+                try { UpdateFogOfWarState(); } catch { }
+            }
 
             // 每帧更新指南针叠加层（安全保护）
             try { LateUpdateCompass(); } catch { }
@@ -686,6 +692,9 @@ namespace FirstPersonCamera
             HideFirstPersonObstructions();
             ApplyFpsCullingProfile();
             
+            // 更新战争迷雾状态（去除战争迷雾）
+            try { UpdateFogOfWarState(); } catch { }
+            
             // 预先创建ADS提示UI
             try { CreateAdsHintUI(); } catch { }
             
@@ -746,6 +755,9 @@ namespace FirstPersonCamera
             RestorePostProcessingBlurEffects();
             RestoreCullingProfile();
             RestoreAimOcclusionFade();
+            
+            // 清理战争迷雾控制（恢复原始状态）
+            try { CleanupFogOfWarControl(); } catch { }
 
             try { if (mainCamera != null && prevNearClip > 0f) { mainCamera.nearClipPlane = prevNearClip; prevNearClip = -1f; } } catch { }
             RestoreFirstPersonObstructions();
