@@ -253,6 +253,7 @@ GPL v3 是一个 copyleft 许可证，要求使用本项目的代码也必须以
 - 感谢《Escape from Duckov》游戏开发者
 - 感谢 Harmony 库的开发者
 - 感谢所有贡献者和测试者
+- 衷心感谢 Mr.sans老师 与 InitLoader(呵呵)老师 慷慨分享其第一人称Mod的开源代码，为本项目的优化提供了至关重要的支持！
 
 ## 更新日志
 
