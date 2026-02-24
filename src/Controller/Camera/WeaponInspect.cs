@@ -78,15 +78,37 @@ namespace FirstPersonCamera
         private float inspectRestoreDuration = 0.6f;
         
         /// <summary>
-        /// 武器检视角度组合列表（X, Y, Z欧拉角）
+        /// 武器检视角度组合列表（X, Y, Z欧拉角）- 调整为看两侧和上方，取消后座和下方视角
+        /// X轴正值为仰视，负值为俯视；所有X控制在-30°到20°之间，避免下方视角
         /// </summary>
-        private readonly Vector3[] inspectAnglePresets = new Vector3[]
+        private Vector3[] inspectAnglePresets = new Vector3[]
         {
-            new Vector3(-8f, -85f, -3f),    // 组合1
-            new Vector3(-27f, -63f, 44f),  // 组合2
-            new Vector3(-55f, -33f, 0f),   // 组合3
-            new Vector3(-3f, -75f, 0f),    // 组合4
-            new Vector3(-3f, -33f, -12f)   // 组合5
+            // 基础视角（保留）
+            new Vector3(-5f, 0f, 0f),      // 正面轻微下压
+            new Vector3(-8f, -15f, 2f),    // 向右微倾
+            new Vector3(-12f, 20f, -3f),   // 向左微倾
+            
+            // 右侧视角（保留）
+            new Vector3(-10f, -45f, 5f),   // 看向右侧
+            new Vector3(-15f, -70f, 10f),  // 看向右后方
+            new Vector3(-20f, -95f, 8f),   // 看向右侧更远
+            
+            // 左侧视角（保留）
+            new Vector3(-10f, 50f, -5f),   // 看向左侧
+            new Vector3(-18f, 80f, -8f),   // 看向左后方
+            new Vector3(-25f, 110f, -10f), // 看向左侧更远
+            
+            // 下方视角替换为上方视角
+            new Vector3(10f, -30f, 0f),     // 仰视看右（原低头看右）
+            new Vector3(15f, 40f, 5f),      // 仰视看左（原低头看左）
+            new Vector3(8f, -100f, 12f),    // 仰视看右后（原轻微低头大幅度右转）
+            new Vector3(10f, 90f, -8f),     // 仰视看左后（原轻微低头大幅度左转）
+            
+            // 后座视角替换为两侧和上方视角
+            new Vector3(5f, -45f, 10f),     // 仰视右前（原右后方仰视）
+            new Vector3(12f, 45f, -8f),     // 仰视左前（原左后方仰视）
+            new Vector3(18f, -55f, 20f),    // 仰视右前上抬（原右前上抬）
+            new Vector3(20f, 60f, -15f),    // 仰视左前下压（原左前下压）
         };
         
         /// <summary>
@@ -292,10 +314,16 @@ namespace FirstPersonCamera
             const float smoothLerpSpeed = 30f; // 平滑插值速度（静止时使用，减少抖动）
             const float fastLerpSpeed = 60f; // 快速插值速度（移动时使用，快速跟随但保持流畅）
             
-            // 随机选择2-3个角度组合
+            // 随机选择2-3个角度组合（从扩充后的预设中随机选取，数量为2或3）
             int numAngles = Random.Range(2, 4); // 2或3个
             System.Collections.Generic.List<int> selectedIndices = new System.Collections.Generic.List<int>();
-            System.Collections.Generic.List<int> availableIndices = new System.Collections.Generic.List<int> { 0, 1, 2, 3, 4 };
+            System.Collections.Generic.List<int> availableIndices = new System.Collections.Generic.List<int>();
+            
+            // 初始化可用索引列表（根据预设数量动态生成）
+            for (int i = 0; i < inspectAnglePresets.Length; i++)
+            {
+                availableIndices.Add(i);
+            }
             
             for (int i = 0; i < numAngles; i++)
             {

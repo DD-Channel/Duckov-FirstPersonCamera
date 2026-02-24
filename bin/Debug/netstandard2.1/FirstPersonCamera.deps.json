@@ -12,6 +12,7 @@
           "0Harmony": "2.4.1.0",
           "Cinemachine": "0.0.0.0",
           "ItemStatsSystem": "0.0.0.0",
+          "Newtonsoft.Json": "13.0.0.0",
           "TeamSoda.Duckov.Core": "0.0.0.0",
           "TeamSoda.Duckov.Utilities": "0.0.0.0",
           "TeamSoda.MiniLocalizor": "0.0.0.0",
@@ -145,6 +146,14 @@
           "ItemStatsSystem.dll": {
             "assemblyVersion": "0.0.0.0",
             "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "Newtonsoft.Json/13.0.0.0": {
+        "runtime": {
+          "Newtonsoft.Json.dll": {
+            "assemblyVersion": "13.0.0.0",
+            "fileVersion": "13.0.2.0"
           }
         }
       },
@@ -1148,6 +1157,14 @@
           }
         }
       },
+      "Razer.WyvrnSDK.Runtime/0.0.0.0": {
+        "runtime": {
+          "Razer.WyvrnSDK.Runtime.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
       "Sirenix.OdinInspector.Attributes/1.0.0.0": {
         "runtime": {
           "Sirenix.OdinInspector.Attributes.dll": {
@@ -1268,14 +1285,6 @@
           }
         }
       },
-      "Newtonsoft.Json/13.0.0.0": {
-        "runtime": {
-          "Newtonsoft.Json.dll": {
-            "assemblyVersion": "13.0.0.0",
-            "fileVersion": "13.0.2.0"
-          }
-        }
-      },
       "ICSharpCode.SharpZipLib/2.86.0.518": {
         "runtime": {
           "ICSharpCode.SharpZipLib.dll": {
@@ -1303,6 +1312,11 @@
       "sha512": ""
     },
     "ItemStatsSystem/0.0.0.0": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Newtonsoft.Json/13.0.0.0": {
       "type": "reference",
       "serviceable": false,
       "sha512": ""
@@ -1932,6 +1946,11 @@
       "serviceable": false,
       "sha512": ""
     },
+    "Razer.WyvrnSDK.Runtime/0.0.0.0": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
     "Sirenix.OdinInspector.Attributes/1.0.0.0": {
       "type": "reference",
       "serviceable": false,
@@ -2003,11 +2022,6 @@
       "sha512": ""
     },
     "EPOUtilities/0.0.0.0": {
-      "type": "reference",
-      "serviceable": false,
-      "sha512": ""
-    },
-    "Newtonsoft.Json/13.0.0.0": {
       "type": "reference",
       "serviceable": false,
       "sha512": ""

@@ -114,11 +114,11 @@ namespace FirstPersonCamera
             // 等待一帧确保所有系统初始化完成
             yield return null;
 
-            // 重新初始化相机控制器，并强制回到第三人称
+            // 重新初始化相机控制器，并强制启用第一人称模式（原为 false，改为 true）
             if (fpsController != null)
             {
                 fpsController.Reinitialize();
-                fpsController.SetFirstPerson(false);
+                fpsController.SetFirstPerson(true); // <--- 修改此处，自动启用第一人称
             }
 
             // 第三人称默认显示血条；FPS 切换时再由控制器抑制

@@ -554,10 +554,10 @@ namespace FirstPersonCamera
             }
             
             // 定期更新战争迷雾状态（降低频率以提高性能）
-            if (obstructionCheckFrameCounter == 0) // 复用计数器，每N帧更新一次
-            {
-                try { UpdateFogOfWarState(); } catch { }
-            }
+            // if (obstructionCheckFrameCounter == 0) // 复用计数器，每N帧更新一次
+            // {
+            //     try { UpdateFogOfWarState(); } catch { }
+            // }
 
             // 每帧更新指南针叠加层（安全保护）
             try { LateUpdateCompass(); } catch { }

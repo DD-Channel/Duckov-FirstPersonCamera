@@ -3,6 +3,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>FirstPersonCamera</AssemblyName>
     <RootNamespace>FirstPersonCamera</RootNamespace>
+    <Nullable>enable</Nullable>
     <!-- Disable default compile items to only include files from src/ directory -->
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <!-- This should be the folder that contains Duckov.exe -->
@@ -14,7 +15,10 @@
     <!-- 如果环境变量 DuckovPath 未设置，将使用下面的默认路径 -->
     <!-- 推荐方式：创建 FirstPersonCamera.csproj.user 文件（此文件不会被提交到 Git）来设置你的本地路径 -->
     <DuckovPath Condition="'$(DuckovPath)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Escape from Duckov</DuckovPath>
+    <ManagedPath Condition="'$(ManagedPath)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Escape from Duckov\Duckov_Data\Managed</ManagedPath>
+
   </PropertyGroup>
+
   <ItemGroup>
     <!-- Include all source files from src/ directory -->
     <Compile Include="src\**\*.cs" />
@@ -30,6 +34,7 @@
         <Reference Include="Newtonsoft.Json">
           <HintPath>$(DuckovPath)\Duckov_Data\Managed\Newtonsoft.Json.dll</HintPath>
         </Reference>
+        <Reference Include="$(ManagedPath)\ECM2.dll" />
+        <Reference Include="$(ManagedPath)\FOW.dll" />
   </ItemGroup> 
 </Project>
-
