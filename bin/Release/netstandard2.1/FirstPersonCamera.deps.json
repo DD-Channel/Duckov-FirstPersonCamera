@@ -11,6 +11,8 @@
         "dependencies": {
           "0Harmony": "2.4.1.0",
           "Cinemachine": "0.0.0.0",
+          "ECM2": "0.0.0.0",
+          "FOW": "0.0.0.0",
           "ItemStatsSystem": "0.0.0.0",
           "Newtonsoft.Json": "13.0.0.0",
           "TeamSoda.Duckov.Core": "0.0.0.0",
@@ -136,6 +138,22 @@
       "Cinemachine/0.0.0.0": {
         "runtime": {
           "Cinemachine.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "ECM2/0.0.0.0": {
+        "runtime": {
+          "ECM2.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "FOW/0.0.0.0": {
+        "runtime": {
+          "FOW.dll": {
             "assemblyVersion": "0.0.0.0",
             "fileVersion": "0.0.0.0"
           }
@@ -1077,14 +1095,6 @@
           }
         }
       },
-      "ECM2/0.0.0.0": {
-        "runtime": {
-          "ECM2.dll": {
-            "assemblyVersion": "0.0.0.0",
-            "fileVersion": "0.0.0.0"
-          }
-        }
-      },
       "LeTai.TrueShadow/0.0.0.0": {
         "runtime": {
           "LeTai.TrueShadow.dll": {
@@ -1120,14 +1130,6 @@
       "com.rlabrecque.steamworks.net/0.0.0.0": {
         "runtime": {
           "com.rlabrecque.steamworks.net.dll": {
-            "assemblyVersion": "0.0.0.0",
-            "fileVersion": "0.0.0.0"
-          }
-        }
-      },
-      "FOW/0.0.0.0": {
-        "runtime": {
-          "FOW.dll": {
             "assemblyVersion": "0.0.0.0",
             "fileVersion": "0.0.0.0"
           }
@@ -1307,6 +1309,16 @@
       "sha512": ""
     },
     "Cinemachine/0.0.0.0": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "ECM2/0.0.0.0": {
+      "type": "reference",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "FOW/0.0.0.0": {
       "type": "reference",
       "serviceable": false,
       "sha512": ""
@@ -1896,11 +1908,6 @@
       "serviceable": false,
       "sha512": ""
     },
-    "ECM2/0.0.0.0": {
-      "type": "reference",
-      "serviceable": false,
-      "sha512": ""
-    },
     "LeTai.TrueShadow/0.0.0.0": {
       "type": "reference",
       "serviceable": false,
@@ -1922,11 +1929,6 @@
       "sha512": ""
     },
     "com.rlabrecque.steamworks.net/0.0.0.0": {
-      "type": "reference",
-      "serviceable": false,
-      "sha512": ""
-    },
-    "FOW/0.0.0.0": {
       "type": "reference",
       "serviceable": false,
       "sha512": ""

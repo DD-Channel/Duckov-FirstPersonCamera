@@ -1,104 +1,151 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Duckov.UI;
+using HarmonyLib;
+using UnityEngine.UI;
+using TMPro;
 
 namespace FirstPersonCamera
 {
-    /// <summary>
-    /// 第一人称相机控制器 - 血条管理模块
-    /// 负责在第一人称模式下将敌人和玩家的血条设置为透明（而非隐藏），
-    /// 以便在退出第一人称模式时能够正确恢复血条显示状态
-    /// </summary>
+    // 受伤时间跟踪器
+    public static class DamageTimeTracker
+    {
+        private static Dictionary<Health, float> lastTimeToHurt = new Dictionary<Health, float>();
+        private const float HURT_VISIBLE_DURATION = 3f;
+
+        public static bool IsRecentlyHurt(Health health)
+        {
+            if (health == null) return false;
+            if (lastTimeToHurt.TryGetValue(health, out float lastHurt))
+            {
+                if (Time.time - lastHurt <= HURT_VISIBLE_DURATION)
+                    return true;
+                else
+                    lastTimeToHurt.Remove(health);
+            }
+            return false;
+        }
+
+        public static void RecordHurt(Health health)
+        {
+            if (health != null)
+                lastTimeToHurt[health] = Time.time;
+        }
+
+        public static void ClearHealth(Health health)
+        {
+            if (health != null)
+                lastTimeToHurt.Remove(health);
+        }
+    }
+
+    //Harmony 补丁：捕获受伤和死亡
+    [HarmonyPatch(typeof(HealthBar))]
+    [HarmonyPatch("OnTargetHurt")]
+    public static class HealthBar_OnTargetHurt_Patch
+    {
+        public static void Postfix(HealthBar __instance)
+        {
+            if (__instance.target != null)
+                DamageTimeTracker.RecordHurt(__instance.target);
+        }
+    }
+
+    [HarmonyPatch(typeof(HealthBar))]
+    [HarmonyPatch("OnTargetDead")]
+    public static class HealthBar_OnTargetDead_Patch
+    {
+        public static void Postfix(HealthBar __instance)
+        {
+            if (__instance.target != null)
+                DamageTimeTracker.ClearHealth(__instance.target);
+        }
+    }
+
+    // 核心血条控制补丁（每帧更新）
+    [HarmonyPatch(typeof(HealthBar))]
+    [HarmonyPatch("UpdatePosition")]
+    public static class HealthBar_UpdatePosition_Extender
+    {
+        private const float HealthBarFadeDelay = 3f;
+
+        public static void Postfix(HealthBar __instance)
+        {
+            var controller = FirstPersonCameraController.Instance;
+            if (controller == null || !controller.IsFirstPersonMode)
+                return; // 非第一人称模式，原版行为不受影响
+
+            // 获取 CanvasGroup（由分帧扫描预先添加）
+            CanvasGroup cg = __instance.GetComponent<CanvasGroup>();
+            if (cg == null) return; // 尚未初始化，跳过
+
+            // 基础条件：目标存在且非隐藏
+            bool shouldShow = __instance.target != null && !__instance.target.Hidden;
+
+            // 玩家自己的血条永远隐藏
+            if (shouldShow && __instance.target.IsMainCharacterHealth)
+                shouldShow = false;
+
+            // 对所有非玩家目标（无论敌友）应用受伤+视野检测
+            if (shouldShow && !__instance.target.IsMainCharacterHealth)
+            {
+                bool recentlyHurt = DamageTimeTracker.IsRecentlyHurt(__instance.target);
+                bool inView = controller.IsInFrustum(__instance.target);
+                shouldShow = recentlyHurt && inView;
+            }
+
+            // 设置透明度（1显示，0隐藏）
+            cg.alpha = shouldShow ? 1f : 0f;
+            cg.interactable = false;
+            cg.blocksRaycasts = false;
+        }
+    }
+
+    // 第一人称相机控制器 - 血条管理模块
     public partial class FirstPersonCameraController
     {
-        #region 常量定义
-        /// <summary>
-        /// 轻量扫描每帧最多处理的血条数量（用于性能优化）
-        /// </summary>
+        #region 常量
         private const int LIGHT_SWEEP_MAX_COUNT_PER_FRAME = 32;
-        
-        /// <summary>
-        /// 定期扫描每帧最多处理的血条数量（用于低预算定期扫描）
-        /// </summary>
-        private const int PERIODIC_SWEEP_MAX_COUNT_PER_FRAME = 24;
-        
-        /// <summary>
-        /// 血条完全透明的Alpha值
-        /// </summary>
-        private const float TRANSPARENT_ALPHA = 0f;
+        private const float VISIBILITY_UPDATE_INTERVAL = 0.1f;
+        private const float FULL_SCAN_INTERVAL = 1f;
         #endregion
 
         #region 私有字段
-        /// <summary>
-        /// 缓存的敌人/玩家血条显示状态（用于恢复原始状态）
-        /// Key: Health对象，Value: 原始的showHealthBar值
-        /// </summary>
-        private readonly Dictionary<Health, bool> cachedEnemyShowBar = new Dictionary<Health, bool>();
-        
-        /// <summary>
-        /// 缓存的透明血条的原始Alpha值（用于恢复透明度）
-        /// Key: HealthBar对象，Value: 原始的CanvasGroup.alpha值
-        /// </summary>
+        private readonly Dictionary<Health, bool> cachedShowHealthBar = new Dictionary<Health, bool>();
         private readonly Dictionary<HealthBar, float> transparentBarsPrevAlpha = new Dictionary<HealthBar, float>();
-        
-        /// <summary>
-        /// 事件是否已挂钩（防止重复订阅）
-        /// </summary>
+        private readonly Dictionary<HealthBar, CanvasGroup> cachedCanvasGroups = new Dictionary<HealthBar, CanvasGroup>();
+
         private bool eventHooked;
-        
-        /// <summary>
-        /// 下次血条扫描的时间戳（用于定期扫描）
-        /// </summary>
         private float nextHealthBarSweepTime;
-        
-        /// <summary>
-        /// 轻量扫描的当前游标位置（用于分帧处理）
-        /// </summary>
+        private float nextFullScanTime;
         private int lightSweepCursor;
-        
-        /// <summary>
-        /// 轻量扫描的缓存数组（避免重复查找）
-        /// </summary>
         private HealthBar[] lightSweepCache;
+        private Camera playerCamera;
+        private Plane[] frustumPlanes = new Plane[6];
         #endregion
 
         #region 事件管理
-        /// <summary>
-        /// 挂钩血条请求事件
-        /// 当游戏请求显示血条时，我们会拦截并使其透明
-        /// </summary>
         private void HookHealthBarEvents()
         {
             if (eventHooked) return;
-            
             try
             {
                 Health.OnRequestHealthBar += OnHealthBarRequested;
                 eventHooked = true;
             }
-            catch
-            {
-                // 事件订阅失败，静默处理
-            }
+            catch { }
         }
 
-        /// <summary>
-        /// 取消挂钩血条请求事件
-        /// 在组件销毁或退出第一人称模式时调用
-        /// </summary>
         private void UnhookHealthBarEvents()
         {
             if (!eventHooked) return;
-            
             try
             {
                 Health.OnRequestHealthBar -= OnHealthBarRequested;
             }
-            catch
-            {
-                // 事件取消订阅失败，静默处理
-            }
+            catch { }
             finally
             {
                 eventHooked = false;
@@ -106,341 +153,167 @@ namespace FirstPersonCamera
         }
         #endregion
 
-        #region 目标识别方法
-        /// <summary>
-        /// 判断指定的Health对象是否为敌人
-        /// </summary>
-        /// <param name="health">要检查的Health对象</param>
-        /// <returns>如果是敌人则返回true，否则返回false</returns>
+        #region 目标识别
         private bool IsEnemy(Health health)
         {
-            if (health == null) return false;
-            if (health.IsMainCharacterHealth) return false; // 主角色不是敌人
+            if (health == null || health.IsMainCharacterHealth) return false;
             return Team.IsEnemy(Teams.player, health.team);
         }
 
-        /// <summary>
-        /// 判断指定的Health对象是否为主角色（玩家自己）
-        /// </summary>
-        /// <param name="health">要检查的Health对象</param>
-        /// <returns>如果是主角色则返回true，否则返回false</returns>
-        private bool IsSelf(Health health)
+        private bool IsSelf(Health health) => health != null && health.IsMainCharacterHealth;
+        private bool IsTarget(Health health) => IsEnemy(health) || IsSelf(health);
+        #endregion
+
+        #region 视野检测
+        private Camera GetPlayerCamera()
         {
-            try
-            {
-                return health != null && health.IsMainCharacterHealth;
-            }
-            catch
-            {
-                return false;
-            }
+            if (playerCamera == null || !playerCamera.gameObject.activeInHierarchy)
+                playerCamera = GetComponent<Camera>() ?? Camera.main;
+            return playerCamera;
         }
 
-        /// <summary>
-        /// 判断指定的Health对象是否为目标（敌人或玩家自己）
-        /// </summary>
-        /// <param name="health">要检查的Health对象</param>
-        /// <returns>如果是目标则返回true，否则返回false</returns>
-        private bool IsTarget(Health health)
+        public bool IsInFrustum(Health health)
         {
-            return IsEnemy(health) || IsSelf(health);
+            Camera cam = GetPlayerCamera();
+            if (cam == null) return false;
+
+            float maxViewDistance = 100f; // 可调整
+            if (Vector3.Distance(cam.transform.position, health.transform.position) > maxViewDistance)
+                return false;
+
+            Renderer[] renderers = health.GetComponentsInChildren<Renderer>();
+            if (renderers.Length > 0)
+            {
+                Bounds bounds = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++)
+                    bounds.Encapsulate(renderers[i].bounds);
+                GeometryUtility.CalculateFrustumPlanes(cam, frustumPlanes);
+                return GeometryUtility.TestPlanesAABB(frustumPlanes, bounds);
+            }
+            else
+            {
+                Collider col = health.GetComponent<Collider>();
+                Bounds bounds = col != null ? col.bounds : new Bounds(health.transform.position, Vector3.one * 1f);
+                GeometryUtility.CalculateFrustumPlanes(cam, frustumPlanes);
+                return GeometryUtility.TestPlanesAABB(frustumPlanes, bounds);
+            }
         }
         #endregion
 
-        #region 事件回调
-        /// <summary>
-        /// 血条请求事件回调
-        /// 当游戏请求显示血条时，如果目标为敌人或玩家自己，则将其设置为透明
-        /// </summary>
-        /// <param name="health">请求显示血条的Health对象</param>
+        #region 事件回调：为新建血条添加 CanvasGroup
         private void OnHealthBarRequested(Health health)
         {
-            // 仅在第一人称模式下处理
             if (!isFirstPersonMode) return;
-            
-            // 仅处理敌人和玩家自己的血条
             if (!IsTarget(health)) return;
-            
-            // 延迟到下一帧处理，确保血条已创建
-            StartCoroutine(MakeHealthBarTransparentNextFrame(health));
-            
-            // 缓存原始显示状态，并确保显示标志为true（我们通过透明化隐藏，而不是禁用）
-            try
-            {
-                if (!cachedEnemyShowBar.ContainsKey(health))
-                {
-                    cachedEnemyShowBar[health] = health.showHealthBar;
-                    // 保持显示标志为true，仅通过透明度隐藏
-                    health.showHealthBar = true;
-                }
-            }
-            catch
-            {
-                // 缓存失败，静默处理
-            }
+
+            StartCoroutine(AddCanvasGroupNextFrame(health));
+
+            if (!cachedShowHealthBar.ContainsKey(health))
+                cachedShowHealthBar[health] = health.showHealthBar; // 仅缓存，不修改原值
         }
 
-        /// <summary>
-        /// 延迟使血条透明化的协程
-        /// 等待一帧以确保血条UI已完全创建
-        /// </summary>
-        /// <param name="health">目标Health对象</param>
-        private IEnumerator MakeHealthBarTransparentNextFrame(Health health)
+        private IEnumerator AddCanvasGroupNextFrame(Health health)
         {
-            yield return new WaitForEndOfFrame();
-            TryMakeTargetBarsTransparent(health);
+            yield return null;
+            if (health != null && isFirstPersonMode)
+                EnsureCanvasGroupForHealth(health);
         }
-        #endregion
 
-        #region 血条透明化方法
-        /// <summary>
-        /// 尝试使指定Health对象的所有血条透明化
-        /// </summary>
-        /// <param name="health">目标Health对象</param>
-        private void TryMakeTargetBarsTransparent(Health health)
+        private void EnsureCanvasGroupForHealth(Health health)
         {
-            if (health == null) return;
-            
             try
             {
-                // 查找场景中所有与目标Health关联的血条
-                var bars = Object.FindObjectsOfType<HealthBar>(true);
+                var bars = UnityEngine.Object.FindObjectsOfType<HealthBar>(true);
                 foreach (var bar in bars)
                 {
-                    if (bar == null) continue;
-                    if (bar.target != health) continue;
-                    if (!bar.gameObject.activeInHierarchy) continue;
-                    
-                    MakeBarTransparent(bar);
+                    if (bar == null || bar.target != health || !bar.gameObject.activeInHierarchy)
+                        continue;
+                    EnsureCanvasGroup(bar);
                 }
             }
-            catch
-            {
-                // 处理失败，静默处理
-            }
+            catch { }
         }
 
-        /// <summary>
-        /// 使单个血条透明化
-        /// 通过CanvasGroup组件控制透明度，而不是释放血条对象
-        /// </summary>
-        /// <param name="bar">要透明化的HealthBar对象</param>
-        private void MakeBarTransparent(HealthBar bar)
+        private CanvasGroup EnsureCanvasGroup(HealthBar bar)
         {
-            if (bar == null) return;
-            
-            try
-            {
-                // 获取或添加CanvasGroup组件
-                var canvasGroup = bar.GetComponent<CanvasGroup>();
-                if (canvasGroup == null)
-                {
-                    canvasGroup = bar.gameObject.AddComponent<CanvasGroup>();
-                }
-                
-                // 缓存原始Alpha值（如果尚未缓存）
-                if (!transparentBarsPrevAlpha.ContainsKey(bar))
-                {
-                    transparentBarsPrevAlpha[bar] = canvasGroup.alpha;
-                }
-                
-                // 设置为完全透明
-                canvasGroup.alpha = TRANSPARENT_ALPHA;
-                canvasGroup.interactable = false;
-                canvasGroup.blocksRaycasts = false;
-            }
-            catch
-            {
-                // 处理失败，静默处理
-            }
+            if (cachedCanvasGroups.TryGetValue(bar, out CanvasGroup cg) && cg != null)
+                return cg;
+
+            cg = bar.GetComponent<CanvasGroup>();
+            if (cg == null)
+                cg = bar.gameObject.AddComponent<CanvasGroup>();
+            cachedCanvasGroups[bar] = cg;
+
+            if (!transparentBarsPrevAlpha.ContainsKey(bar))
+                transparentBarsPrevAlpha[bar] = cg.alpha;
+
+            // 初始透明度由 UpdatePosition 补丁控制，此处无需设置
+            return cg;
         }
         #endregion
 
-        #region 批量处理方法
-        /// <summary>
-        /// 尝试隐藏所有敌人和玩家自己的血条
-        /// 通过遍历场景中所有Health对象并使其血条透明化
-        /// 注意：此方法性能开销较大，应谨慎使用
-        /// </summary>
-        private void TryHideAllEnemyHealthBars()
-        {
-            try
-            {
-                var allHealth = Object.FindObjectsOfType<Health>(true);
-                foreach (var health in allHealth)
-                {
-                    if (!IsTarget(health)) continue;
-                    
-                    // 缓存原始显示状态
-                    if (!cachedEnemyShowBar.ContainsKey(health))
-                    {
-                        cachedEnemyShowBar[health] = health.showHealthBar;
-                    }
-                    
-                    // 保持显示标志为true，仅通过透明度隐藏
-                    if (!health.showHealthBar)
-                    {
-                        health.showHealthBar = true;
-                    }
-                    
-                    // 使关联的血条透明化
-                    TryMakeTargetBarsTransparent(health);
-                }
-            }
-            catch
-            {
-                // 处理失败，静默处理
-            }
-        }
-
-        /// <summary>
-        /// 轻量级分帧扫描，使符合条件的血条透明化
-        /// 每帧最多处理指定数量的血条，避免单帧卡顿
-        /// </summary>
-        /// <param name="maxCount">每帧最多处理的血条数量</param>
+        #region 分帧扫描（仅用于缓存管理和恢复，不再控制可见性）
         private void LightSweepTransparentSomeBars(int maxCount)
         {
-            // 如果缓存为空或已处理完，重新获取所有血条
+            if (Time.time < nextHealthBarSweepTime) return;
+            nextHealthBarSweepTime = Time.time + VISIBILITY_UPDATE_INTERVAL;
+
             if (lightSweepCache == null || lightSweepCursor >= lightSweepCache.Length)
             {
-                lightSweepCache = Object.FindObjectsOfType<HealthBar>(true);
-                lightSweepCursor = 0;
+                if (Time.time >= nextFullScanTime)
+                {
+                    lightSweepCache = UnityEngine.Object.FindObjectsOfType<HealthBar>(true);
+                    nextFullScanTime = Time.time + FULL_SCAN_INTERVAL;
+                    lightSweepCursor = 0;
+                }
+                else
+                {
+                    return;
+                }
             }
-            
-            // 处理指定数量的血条
+
             int processed = 0;
-            while (lightSweepCache != null && 
-                   lightSweepCursor < lightSweepCache.Length && 
-                   processed < maxCount)
+            while (lightSweepCache != null && lightSweepCursor < lightSweepCache.Length && processed < maxCount)
             {
                 var bar = lightSweepCache[lightSweepCursor++];
-                
-                // 跳过无效或未激活的血条
-                if (bar == null || !bar.gameObject.activeInHierarchy)
-                {
-                    continue;
-                }
-                
+                if (bar == null || !bar.gameObject.activeInHierarchy) continue;
+
+                // 确保 CanvasGroup 存在且被缓存
+                EnsureCanvasGroup(bar);
+
                 var target = bar.target;
-                if (target == null)
-                {
-                    continue;
-                }
-                
-                // 仅处理敌人和玩家自己的血条
-                if (!IsTarget(target))
-                {
-                    continue;
-                }
-                
-                // 缓存原始显示状态
-                if (!cachedEnemyShowBar.ContainsKey(target))
-                {
-                    cachedEnemyShowBar[target] = target.showHealthBar;
-                }
-                
-                // 确保显示标志为true
-                if (!target.showHealthBar)
-                {
-                    target.showHealthBar = true;
-                }
-                
-                // 使血条透明化
-                MakeBarTransparent(bar);
+                if (target != null && !cachedShowHealthBar.ContainsKey(target))
+                    cachedShowHealthBar[target] = target.showHealthBar;
+
                 processed++;
             }
-            
-            // 如果处理完成，清空缓存
+
             if (lightSweepCache != null && lightSweepCursor >= lightSweepCache.Length)
             {
                 lightSweepCache = null;
                 lightSweepCursor = 0;
             }
         }
-
-        /// <summary>
-        /// 完整扫描并确保所有符合条件的血条透明化
-        /// 作为后备方案，确保没有遗漏的血条
-        /// 注意：此方法性能开销较大，应谨慎使用
-        /// </summary>
-        private void SweepAndEnsureAllBarsTransparent()
-        {
-            try
-            {
-                var bars = Object.FindObjectsOfType<HealthBar>(true);
-                foreach (var bar in bars)
-                {
-                    if (bar == null || !bar.gameObject.activeInHierarchy)
-                    {
-                        continue;
-                    }
-                    
-                    var target = bar.target;
-                    if (target == null)
-                    {
-                        continue;
-                    }
-                    
-                    if (!IsTarget(target))
-                    {
-                        continue;
-                    }
-                    
-                    // 缓存原始显示状态
-                    if (!cachedEnemyShowBar.ContainsKey(target))
-                    {
-                        cachedEnemyShowBar[target] = target.showHealthBar;
-                    }
-                    
-                    // 确保显示标志为true
-                    if (!target.showHealthBar)
-                    {
-                        target.showHealthBar = true;
-                    }
-                    
-                    // 使血条透明化
-                    MakeBarTransparent(bar);
-                }
-            }
-            catch
-            {
-                // 处理失败，静默处理
-            }
-        }
         #endregion
 
         #region 恢复方法
-        /// <summary>
-        /// 恢复所有缓存的敌人/玩家血条显示标志
-        /// 在退出第一人称模式时调用，恢复原始的showHealthBar状态
-        /// </summary>
         private void RestoreEnemyHealthBarFlags()
         {
             try
             {
-                foreach (var kvp in cachedEnemyShowBar)
+                foreach (var kvp in cachedShowHealthBar)
                 {
-                    var health = kvp.Key;
-                    if (health != null)
-                    {
-                        health.showHealthBar = kvp.Value;
-                    }
+                    if (kvp.Key != null)
+                        kvp.Key.showHealthBar = kvp.Value;
                 }
             }
-            catch
-            {
-                // 恢复失败，静默处理
-            }
+            catch { }
             finally
             {
-                cachedEnemyShowBar.Clear();
+                cachedShowHealthBar.Clear();
             }
         }
 
-        /// <summary>
-        /// 恢复所有透明血条的透明度
-        /// 在退出第一人称模式时调用，恢复原始的CanvasGroup.alpha值
-        /// </summary>
         private void RestoreEnemyHealthBarTransparency()
         {
             try
@@ -448,28 +321,68 @@ namespace FirstPersonCamera
                 foreach (var kvp in transparentBarsPrevAlpha)
                 {
                     var bar = kvp.Key;
-                    if (bar == null)
+                    if (bar == null) continue;
+                    if (cachedCanvasGroups.TryGetValue(bar, out CanvasGroup cg) && cg != null)
+                        cg.alpha = kvp.Value;
+                    else
                     {
-                        continue;
-                    }
-                    
-                    var canvasGroup = bar.GetComponent<CanvasGroup>();
-                    if (canvasGroup != null)
-                    {
-                        canvasGroup.alpha = kvp.Value;
+                        cg = bar.GetComponent<CanvasGroup>();
+                        if (cg != null)
+                            cg.alpha = kvp.Value;
                     }
                 }
             }
-            catch
-            {
-                // 恢复失败，静默处理
-            }
+            catch { }
             finally
             {
                 transparentBarsPrevAlpha.Clear();
+                cachedCanvasGroups.Clear();
             }
         }
         #endregion
+
+        // 旧字段存根（保持兼容）
+        private float nextHealthBarSweepTimeOld;
+        private int lightSweepCursorOld;
+        private HealthBar[] lightSweepCacheOld;
+        private void HookHealthBarEventsOld() { }
+        private void UnhookHealthBarEventsOld() { }
+        private void LightSweepTransparentSomeBarsOld(int maxCount) { }
+        private void RestoreEnemyHealthBarTransparencyOld() { }
+        private void RestoreEnemyHealthBarFlagsOld() { }
+    }
+     // 强制关闭透视（游戏默认开启，此补丁无条件关闭）
+    [HarmonyPatch(typeof(CharacterMainControl))]
+    [HarmonyPatch("SetCharacterModel")]
+    public static class CharacterSetModelPatch_DisableWallHack
+    {
+        private static Shader _showBackShader;
+
+        public static void Postfix(CharacterMainControl __instance)
+        {
+            // 加载着色器（如果尚未加载）
+            if (_showBackShader == null)
+            {
+                _showBackShader = Shader.Find("CharacterShowBack");
+                if (_showBackShader == null)
+                {
+                    Debug.LogError("[WallHack] 找不到着色器 'CharacterShowBack'，无法关闭透视！");
+                    return;
+                }
+            }
+
+            // 遍历所有 SkinnedMeshRenderer，将使用了该着色器的材质的渲染队列设为 0（背景队列），从而关闭透视
+            foreach (var renderer in __instance.characterModel.GetComponentsInChildren<SkinnedMeshRenderer>())
+            {
+                foreach (var mat in renderer.materials)
+                {
+                    if (mat != null && mat.shader == _showBackShader)
+                    {
+                        mat.renderQueue = 0; // 恢复默认渲染顺序，取消透视
+                        // 可选：为避免重复操作，可以添加标记，但非必须
+                    }
+                }
+            }
+        }
     }
 }
-

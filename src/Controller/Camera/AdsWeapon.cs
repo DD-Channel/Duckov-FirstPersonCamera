@@ -8,7 +8,7 @@ namespace FirstPersonCamera
 {
     /// <summary>
     /// 第一人称相机控制器 - ADS武器位移系统模块
-    /// 负责处理ADS状态下武器的位置调整、武器高度偏移管理和ADS提示UI
+    /// 负责处理ADS状态下武器的位置调整、武器高度/左右/前后偏移管理和ADS提示UI
     /// </summary>
     public partial class FirstPersonCameraController
     {
@@ -31,7 +31,7 @@ namespace FirstPersonCamera
         /// <summary>
         /// ADS武器平滑插值速度（每秒）
         /// </summary>
-        [SerializeField] private float adsWeaponLerpSpeed = 24f;
+        [SerializeField] private float adsWeaponLerpSpeed = 36f;
         
         /// <summary>
         /// 是否直接设置武器位置（推荐开启以避免旋转抖动）
@@ -60,10 +60,11 @@ namespace FirstPersonCamera
         /// </summary>
         private bool adsCachedOrig;
         
+        #region 调节参数（Y轴 - 上下）
         /// <summary>
         /// Y轴偏移调整步长（每次滚轮调整的增量）
         /// </summary>
-        [SerializeField] private float adsOffsetYStep = 0.005f;
+        [SerializeField] private float adsOffsetYStep = 0.001f;
         
         /// <summary>
         /// Y轴偏移最小值（米）
@@ -73,7 +74,7 @@ namespace FirstPersonCamera
         /// <summary>
         /// Y轴偏移最大值（米）
         /// </summary>
-        [SerializeField] private float adsOffsetYDeltaMax = 0.25f;
+        [SerializeField] private float adsOffsetYDeltaMax = 0.5f;
         
         /// <summary>
         /// 当前Y轴偏移增量（用于调整武器高度）
@@ -85,6 +86,88 @@ namespace FirstPersonCamera
         /// </summary>
         private System.Collections.Generic.Dictionary<int, float> gunYOffsetMap = 
             new System.Collections.Generic.Dictionary<int, float>();
+        #endregion
+
+        #region 调节参数（X轴 - 左右）
+        /// <summary>
+        /// X轴偏移调整步长（每次滚轮调整的增量）
+        /// </summary>
+        [SerializeField] private float adsOffsetXStep = 0.001f;
+        
+        /// <summary>
+        /// X轴偏移最小值（米） - 已减少一半（原 -0.25f）
+        /// </summary>
+        [SerializeField] private float adsOffsetXDeltaMin = -0.25f;
+        
+        /// <summary>
+        /// X轴偏移最大值（米）
+        /// </summary>
+        [SerializeField] private float adsOffsetXDeltaMax = 0.5f;
+        
+        /// <summary>
+        /// 当前X轴偏移增量（用于调整武器左右）
+        /// </summary>
+        private float adsXOffsetDelta = 0f;
+        
+        /// <summary>
+        /// 每把枪的独立左右偏移值映射（TypeID -> 偏移值）
+        /// </summary>
+        private System.Collections.Generic.Dictionary<int, float> gunXOffsetMap = 
+            new System.Collections.Generic.Dictionary<int, float>();
+        #endregion
+
+        #region 调节参数（Z轴 - 前后）
+        /// <summary>
+        /// Z轴偏移调整步长（每次滚轮调整的增量）
+        /// </summary>
+        [SerializeField] private float adsOffsetZStep = 0.001f;
+        
+        /// <summary>
+        /// Z轴偏移最小值（米）
+        /// </summary>
+        [SerializeField] private float adsOffsetZDeltaMin = -0.25f;
+        
+        /// <summary>
+        /// Z轴偏移最大值（米）
+        /// </summary>
+        [SerializeField] private float adsOffsetZDeltaMax = 0.5f;
+        
+        /// <summary>
+        /// 当前Z轴偏移增量（用于调整武器前后）
+        /// </summary>
+        private float adsZOffsetDelta = 0f;
+        
+        /// <summary>
+        /// 每把枪的独立前后偏移值映射（TypeID -> 偏移值）
+        /// </summary>
+        private System.Collections.Generic.Dictionary<int, float> gunZOffsetMap = 
+            new System.Collections.Generic.Dictionary<int, float>();
+        #endregion
+        
+        /// <summary>
+        /// 调节模式枚举
+        /// </summary>
+        private enum AdsAdjustMode
+        {
+            X,  // 左右
+            Y,  // 上下
+            Z   // 前后
+        }
+        
+        /// <summary>
+        /// 当前调节模式
+        /// </summary>
+        private AdsAdjustMode adsAdjustMode = AdsAdjustMode.Y; // 默认Y轴（高度）
+        
+        /// <summary>
+        /// 模式切换快捷键（旧输入系统）
+        /// </summary>
+        private const KeyCode ADS_MODE_TOGGLE_KEY_LEGACY = KeyCode.Minus;
+        
+        /// <summary>
+        /// 模式切换快捷键（新输入系统）
+        /// </summary>
+        private const Key ADS_MODE_TOGGLE_KEY_NEW = Key.Minus;
         
         /// <summary>
         /// 当前武器的TypeID（用于检测武器切换）
@@ -125,17 +208,17 @@ namespace FirstPersonCamera
         /// <summary>
         /// 当前武器的瞄准速度（用于ADS平滑和FOV平滑）
         /// </summary>
-        private float currentAdsSpeed = 12f;
+        private float currentAdsSpeed = 36f;
         
         /// <summary>
         /// ADS速度加速倍数（用于加快ADS过渡速度）
         /// </summary>
-        private const float ADS_SPEED_MULTIPLIER = 6.25f;
+        private const float ADS_SPEED_MULTIPLIER = 25f;
         
         /// <summary>
         /// 默认ADS速度（当无法获取武器速度时使用）
         /// </summary>
-        private const float DEFAULT_ADS_SPEED = 12f;
+        private const float DEFAULT_ADS_SPEED = 36f;
         
         /// <summary>
         /// ADS激活阈值，当AdsValue大于此值时认为进入ADS状态
@@ -153,73 +236,99 @@ namespace FirstPersonCamera
         private const float SCROLL_INPUT_THRESHOLD = 0.01f;
         #endregion
 
-        #region 武器高度偏移系统
-        /// <summary>
-        /// 保存指定武器的Y轴偏移值到本地
-        /// </summary>
-        /// <param name="gunTypeID">武器TypeID</param>
-        /// <param name="offset">Y轴偏移值</param>
+        #region 武器三轴偏移系统
+        // Y轴偏移保存/加载
         private void SaveGunYOffset(int gunTypeID, float offset)
         {
             try
             {
-                // 更新内存中的值
                 gunYOffsetMap[gunTypeID] = offset;
-                
-                // 保存到本地
                 string key = $"FirstPersonCamera_GunYOffset_{gunTypeID}";
-                FirstPersonCamera.Utilities.ConfigManager.Save<float>(key, offset);
+                ConfigManager.Save<float>(key, offset);
             }
-            catch
-            {
-                // 保存失败时静默处理
-            }
+            catch { }
         }
         
-        /// <summary>
-        /// 从本地加载指定武器的Y轴偏移值
-        /// </summary>
-        /// <param name="gunTypeID">武器TypeID</param>
-        /// <returns>Y轴偏移值，如果不存在则返回0</returns>
         private float LoadGunYOffset(int gunTypeID)
         {
             try
             {
-                // 先检查内存中是否有值
-                if (gunYOffsetMap.TryGetValue(gunTypeID, out float cachedValue))
-                {
-                    return cachedValue;
-                }
-                
-                // 从本地加载
+                if (gunYOffsetMap.TryGetValue(gunTypeID, out float cached))
+                    return cached;
                 string key = $"FirstPersonCamera_GunYOffset_{gunTypeID}";
-                float savedValue = FirstPersonCamera.Utilities.ConfigManager.Load<float>(key, 0f, keepCurrentOnError: true);
-                
-                // 更新内存中的值
-                gunYOffsetMap[gunTypeID] = savedValue;
-                
-                return savedValue;
+                float saved = ConfigManager.Load<float>(key, 0f, keepCurrentOnError: true);
+                gunYOffsetMap[gunTypeID] = saved;
+                return saved;
             }
-            catch
+            catch { return 0f; }
+        }
+
+        // X轴偏移保存/加载
+        private void SaveGunXOffset(int gunTypeID, float offset)
+        {
+            try
             {
-                return 0f;
+                gunXOffsetMap[gunTypeID] = offset;
+                string key = $"FirstPersonCamera_GunXOffset_{gunTypeID}";
+                ConfigManager.Save<float>(key, offset);
             }
+            catch { }
         }
         
+        private float LoadGunXOffset(int gunTypeID)
+        {
+            try
+            {
+                if (gunXOffsetMap.TryGetValue(gunTypeID, out float cached))
+                    return cached;
+                string key = $"FirstPersonCamera_GunXOffset_{gunTypeID}";
+                float saved = ConfigManager.Load<float>(key, 0f, keepCurrentOnError: true);
+                gunXOffsetMap[gunTypeID] = saved;
+                return saved;
+            }
+            catch { return 0f; }
+        }
+
+        // Z轴偏移保存/加载
+        private void SaveGunZOffset(int gunTypeID, float offset)
+        {
+            try
+            {
+                gunZOffsetMap[gunTypeID] = offset;
+                string key = $"FirstPersonCamera_GunZOffset_{gunTypeID}";
+                ConfigManager.Save<float>(key, offset);
+            }
+            catch { }
+        }
+        
+        private float LoadGunZOffset(int gunTypeID)
+        {
+            try
+            {
+                if (gunZOffsetMap.TryGetValue(gunTypeID, out float cached))
+                    return cached;
+                string key = $"FirstPersonCamera_GunZOffset_{gunTypeID}";
+                float saved = ConfigManager.Load<float>(key, 0f, keepCurrentOnError: true);
+                gunZOffsetMap[gunTypeID] = saved;
+                return saved;
+            }
+            catch { return 0f; }
+        }
+
         /// <summary>
-        /// 初始化武器高度偏移系统
+        /// 初始化武器偏移系统
         /// </summary>
-        private void InitializeGunYOffsetSystem()
+        private void InitializeGunOffsetSystem()
         {
             try
             {
                 gunYOffsetMap.Clear();
+                gunXOffsetMap.Clear();
+                gunZOffsetMap.Clear();
                 currentGunTypeID = -1;
+                adsAdjustMode = AdsAdjustMode.Y; // 默认Y轴
             }
-            catch
-            {
-                // 初始化失败时静默处理
-            }
+            catch { }
         }
         #endregion
 
@@ -227,18 +336,15 @@ namespace FirstPersonCamera
         /// <summary>
         /// 更新ADS武器位置
         /// 当进入ADS状态时，将武器移动到相机下方，保持与相机同朝向
-        /// 支持滚轮调整武器高度，每把武器独立保存偏移值
+        /// 支持滚轮调整武器高度/左右/前后，每把武器独立保存偏移值
+        /// 按【-】键切换调节模式（左右→上下→前后循环）
         /// </summary>
         private void UpdateAdsWeaponPlacement()
         {
             if (mainCharacter == null || mainCamera == null) return;
             
-            // 如果正在检视武器，不更新ADS位置（让检视动画控制武器位置）
-            // 武器切换检测在Update循环中的CheckWeaponSwitchAndStopInspect()处理
             if (isInspectingWeapon || isInspectingMelee)
-            {
                 return;
-            }
             
             var gun = mainCharacter.GetGun();
             if (gun == null)
@@ -256,80 +362,63 @@ namespace FirstPersonCamera
                 return;
             }
             
-            // 检测武器切换，加载对应的高度偏移值
+            // 获取武器TypeID
             int gunTypeID = -1;
             try
             {
                 if (gun.Item != null)
-                {
                     gunTypeID = gun.Item.TypeID;
-                }
             }
-            catch
-            {
-                // 获取武器TypeID失败时使用默认值
-            }
-            
-            // 如果武器切换了，加载对应的偏移值
+            catch { }
+
+            // 武器切换时加载对应的X/Y/Z偏移
             if (gunTypeID != -1 && gunTypeID != currentGunTypeID)
             {
-                // 保存当前武器的偏移值（如果有）
+                // 保存当前武器的偏移
                 if (currentGunTypeID != -1)
                 {
                     SaveGunYOffset(currentGunTypeID, adsYOffsetDelta);
+                    SaveGunXOffset(currentGunTypeID, adsXOffsetDelta);
+                    SaveGunZOffset(currentGunTypeID, adsZOffsetDelta);
                 }
                 
-                // 切换到新武器，加载对应的偏移值
                 currentGunTypeID = gunTypeID;
                 adsYOffsetDelta = LoadGunYOffset(gunTypeID);
+                adsXOffsetDelta = LoadGunXOffset(gunTypeID);
+                adsZOffsetDelta = LoadGunZOffset(gunTypeID);
                 
-                // 武器切换时，重置ADS缓存，确保新武器能正确初始化
                 adsCachedOrig = false;
                 adsLastGunTransform = null;
             }
             else if (gunTypeID == -1 && currentGunTypeID != -1)
             {
-                // 武器被移除，保存当前武器的偏移值
+                // 武器被移除，保存当前偏移
                 SaveGunYOffset(currentGunTypeID, adsYOffsetDelta);
+                SaveGunXOffset(currentGunTypeID, adsXOffsetDelta);
+                SaveGunZOffset(currentGunTypeID, adsZOffsetDelta);
                 currentGunTypeID = -1;
-                
-                // 武器被移除时，重置ADS缓存
                 adsCachedOrig = false;
                 adsLastGunTransform = null;
             }
 
             // 获取ADS状态
             float ads = 0f;
-            try
-            {
-                ads = gun.AdsValue;
-            }
-            catch
-            {
-                ads = 0f;
-            }
+            try { ads = gun.AdsValue; } catch { ads = 0f; }
             
-            // 检测右键按下状态
             bool rmbPressed = false;
             try
             {
                 if (useNewInputSystem)
                 {
                     var m = Mouse.current;
-                    if (m != null)
-                    {
-                        rmbPressed = m.rightButton.isPressed;
-                    }
+                    if (m != null) rmbPressed = m.rightButton.isPressed;
                 }
                 else
                 {
                     rmbPressed = Input.GetMouseButton(1);
                 }
             }
-            catch
-            {
-                // 检测失败时使用默认值
-            }
+            catch { }
 
             // 更新ADS状态
             bool wasAdsEngaged = adsEngaged;
@@ -337,95 +426,52 @@ namespace FirstPersonCamera
             {
                 adsEngaged = true;
                 adsReleaseTimer = adsReleaseGrace;
+                if (!wasAdsEngaged) adsIsSmoothingToTarget = true;
                 
-                // 如果刚进入ADS状态，开始平滑过渡
-                if (!wasAdsEngaged)
-                {
-                    adsIsSmoothingToTarget = true;
-                }
-                
-                // 获取武器的瞄准速度（用于ADS平滑和FOV平滑）
                 try
                 {
                     currentAdsSpeed = gun.AdsSpeed * ADS_SPEED_MULTIPLIER;
-                    if (currentAdsSpeed <= 0f)
-                    {
-                        // 防止除零，默认速度也加快
-                        currentAdsSpeed = DEFAULT_ADS_SPEED * ADS_SPEED_MULTIPLIER;
-                    }
+                    if (currentAdsSpeed <= 0f) currentAdsSpeed = DEFAULT_ADS_SPEED * ADS_SPEED_MULTIPLIER;
                 }
-                catch
-                {
-                    currentAdsSpeed = DEFAULT_ADS_SPEED * ADS_SPEED_MULTIPLIER;
-                }
+                catch { currentAdsSpeed = DEFAULT_ADS_SPEED * ADS_SPEED_MULTIPLIER; }
                 
-                // 检查倍镜并更新FOV（设置目标值）
                 UpdateScopeFOV(gun);
             }
             else if (adsReleaseTimer > 0f)
             {
-                // 在释放延迟期间，继续更新
                 adsReleaseTimer -= Time.unscaledDeltaTime;
                 if (adsReleaseTimer <= 0f)
                 {
                     adsEngaged = false;
-                    adsIsSmoothingToTarget = false; // 取消ADS时重置平滑状态
-                    // 退出ADS时恢复基础FOV（平滑过渡）
+                    adsIsSmoothingToTarget = false;
                     RestoreBaseFOV();
                 }
                 else
                 {
-                    // 在延迟期间继续平滑更新FOV（跟随AdsValue）
-                    if (gun != null)
-                    {
-                        UpdateScopeFOVSmooth(gun);
-                    }
+                    if (gun != null) UpdateScopeFOVSmooth(gun);
                 }
             }
             else
             {
-                adsIsSmoothingToTarget = false; // 不在ADS状态时重置
-                // 不在ADS状态时恢复基础FOV（跟随AdsValue）
+                adsIsSmoothingToTarget = false;
                 RestoreBaseFOV();
-                if (gun != null)
-                {
-                    UpdateScopeFOVSmooth(gun);
-                }
-                else
-                {
-                    // 如果没有枪械，直接恢复基础FOV
-                    if (mainCamera != null)
-                    {
-                        mainCamera.fieldOfView = baseFov;
-                        currentScopeFovMultiplier = 1f;
-                        scopeFovMultiplier = 1f;
-                    }
-                }
+                if (gun != null) UpdateScopeFOVSmooth(gun);
+                else if (mainCamera != null) mainCamera.fieldOfView = baseFov;
             }
             
-            // 无论是否在ADS状态，都更新FOV缩放（跟随AdsValue）
-            if (gun != null)
-            {
-                UpdateScopeFOVSmooth(gun);
-            }
+            if (gun != null) UpdateScopeFOVSmooth(gun);
 
             bool shouldAdsPlace = adsEngaged;
 
-            // 功能开关：ADS 武器位移
             bool adsOffsetEnabled = true;
             try
             {
-                adsOffsetEnabled = FirstPersonCamera.Utilities.OptionsHelper.LoadInt(
-                    FirstPersonOptionsUI.EnableAdsOffsetKey, 1) == 1;
+                adsOffsetEnabled = OptionsHelper.LoadInt(FirstPersonOptionsUI.EnableAdsOffsetKey, 1) == 1;
             }
-            catch
-            {
-                adsOffsetEnabled = true;
-            }
+            catch { adsOffsetEnabled = true; }
             
-            // 更新ADS提示显示（仅当功能开启且真正开镜时显示）
-            UpdateAdsHint(adsOffsetEnabled && shouldAdsPlace && 
-                         (ads > ADS_ACTIVATION_THRESHOLD || rmbPressed));
+            // 更新提示显示
+            UpdateAdsHint(adsOffsetEnabled && shouldAdsPlace && (ads > ADS_ACTIVATION_THRESHOLD || rmbPressed));
             
             if (!adsOffsetEnabled)
             {
@@ -439,7 +485,7 @@ namespace FirstPersonCamera
                 return;
             }
 
-            // 缓存武器的原始位姿（如果还没有缓存或武器切换了）
+            // 缓存原始位姿
             if (!adsCachedOrig || adsLastGunTransform != gunTf)
             {
                 adsOriginalLocalPos = gunTf.localPosition;
@@ -448,73 +494,104 @@ namespace FirstPersonCamera
                 adsCachedOrig = true;
             }
 
-            // 滚轮调节Y偏移（仅ADS）
+            // 检测模式切换键【=】（适配新旧输入系统）
+            try
+            {
+                if (useNewInputSystem)
+                {
+                    var keyboard = Keyboard.current;
+                    if (keyboard != null && keyboard[ADS_MODE_TOGGLE_KEY_NEW].wasPressedThisFrame)
+                    {
+                        // 循环切换模式：X -> Y -> Z -> X
+                        adsAdjustMode = adsAdjustMode switch
+                        {
+                            AdsAdjustMode.X => AdsAdjustMode.Y,
+                            AdsAdjustMode.Y => AdsAdjustMode.Z,
+                            AdsAdjustMode.Z => AdsAdjustMode.X,
+                            _ => AdsAdjustMode.Y
+                        };
+                    }
+                }
+                else
+                {
+                    if (Input.GetKeyDown(ADS_MODE_TOGGLE_KEY_LEGACY))
+                    {
+                        adsAdjustMode = adsAdjustMode switch
+                        {
+                            AdsAdjustMode.X => AdsAdjustMode.Y,
+                            AdsAdjustMode.Y => AdsAdjustMode.Z,
+                            AdsAdjustMode.Z => AdsAdjustMode.X,
+                            _ => AdsAdjustMode.Y
+                        };
+                    }
+                }
+            }
+            catch { }
+
+            // 滚轮调节
             float scroll = 0f;
             try
             {
                 if (useNewInputSystem)
                 {
                     var mouse = Mouse.current;
-                    if (mouse != null)
-                    {
-                        // 通常每个刻度±120
-                        scroll = mouse.scroll.ReadValue().y;
-                    }
+                    if (mouse != null) scroll = mouse.scroll.ReadValue().y;
                 }
                 else
                 {
                     scroll = Input.GetAxis("Mouse ScrollWheel") * MOUSE_SCROLL_MULTIPLIER;
                 }
             }
-            catch
-            {
-                // 获取滚轮输入失败时使用默认值
-            }
+            catch { }
             
             if (Mathf.Abs(scroll) > SCROLL_INPUT_THRESHOLD)
             {
-                float delta = Mathf.Sign(scroll) * adsOffsetYStep;
-                adsYOffsetDelta = Mathf.Clamp(adsYOffsetDelta + delta, 
-                    adsOffsetYDeltaMin, adsOffsetYDeltaMax);
-                
-                // 保存当前武器的偏移值
-                if (currentGunTypeID != -1)
+                float delta = Mathf.Sign(scroll);
+                switch (adsAdjustMode)
                 {
-                    SaveGunYOffset(currentGunTypeID, adsYOffsetDelta);
+                    case AdsAdjustMode.X:
+                        delta *= adsOffsetXStep;
+                        adsXOffsetDelta = Mathf.Clamp(adsXOffsetDelta + delta, adsOffsetXDeltaMin, adsOffsetXDeltaMax);
+                        if (currentGunTypeID != -1) SaveGunXOffset(currentGunTypeID, adsXOffsetDelta);
+                        break;
+                    case AdsAdjustMode.Y:
+                        delta *= adsOffsetYStep;
+                        adsYOffsetDelta = Mathf.Clamp(adsYOffsetDelta + delta, adsOffsetYDeltaMin, adsOffsetYDeltaMax);
+                        if (currentGunTypeID != -1) SaveGunYOffset(currentGunTypeID, adsYOffsetDelta);
+                        break;
+                    case AdsAdjustMode.Z:
+                        delta *= adsOffsetZStep;
+                        adsZOffsetDelta = Mathf.Clamp(adsZOffsetDelta + delta, adsOffsetZDeltaMin, adsOffsetZDeltaMax);
+                        if (currentGunTypeID != -1) SaveGunZOffset(currentGunTypeID, adsZOffsetDelta);
+                        break;
                 }
             }
 
-            // 计算目标位姿（世界空间）：相机下方一点并前探一点，保持与相机同朝向
+            // 计算目标位姿：相机偏移 + 累计X/Y/Z偏移
             Vector3 camPos = mainCamera.transform.position;
             Quaternion camRot = mainCamera.transform.rotation;
             Vector3 camSpaceOffset = adsWeaponCamSpaceOffset;
+            camSpaceOffset.x += adsXOffsetDelta;
             camSpaceOffset.y += adsYOffsetDelta;
+            camSpaceOffset.z += adsZOffsetDelta;
             Vector3 targetWorldPos = camPos + camRot * camSpaceOffset;
             Quaternion targetWorldRot = camRot;
 
-            // 将目标位姿转换到武器父节点的局部空间，避免骨骼动画/父节点驱动造成的偏移漂移
             Transform parentTf = gunTf.parent;
             if (parentTf != null)
             {
                 Vector3 targetLocalPos = parentTf.InverseTransformPoint(targetWorldPos);
                 Quaternion targetLocalRot = Quaternion.Inverse(parentTf.rotation) * targetWorldRot;
                 
-                // 举枪时先平滑移动到目标位置，到达后再直接设置（避免旋转抖动）
                 if (adsIsSmoothingToTarget && adsWeaponUseDirectSet)
                 {
-                    // 平滑过渡阶段：使用武器的瞄准速度进行插值
-                    // 使用指数衰减公式，速度基于武器的AdsSpeed
-                    float lerpSpeed = currentAdsSpeed;
-                    float t = 1f - Mathf.Exp(-lerpSpeed * Time.unscaledDeltaTime);
+                    float t = 1f - Mathf.Exp(-currentAdsSpeed * Time.unscaledDeltaTime);
                     gunTf.localPosition = Vector3.Lerp(gunTf.localPosition, targetLocalPos, t);
                     gunTf.localRotation = Quaternion.Slerp(gunTf.localRotation, targetLocalRot, t);
                     
-                    // 检查是否已经到达目标位置
-                    float posDist = Vector3.Distance(gunTf.localPosition, targetLocalPos);
-                    float rotDist = Quaternion.Angle(gunTf.localRotation, targetLocalRot);
-                    if (posDist < ADS_SMOOTH_THRESHOLD && rotDist < ADS_ROTATION_THRESHOLD)
+                    if (Vector3.Distance(gunTf.localPosition, targetLocalPos) < ADS_SMOOTH_THRESHOLD &&
+                        Quaternion.Angle(gunTf.localRotation, targetLocalRot) < ADS_ROTATION_THRESHOLD)
                     {
-                        // 到达目标，切换到直接设置模式
                         adsIsSmoothingToTarget = false;
                         gunTf.localPosition = targetLocalPos;
                         gunTf.localRotation = targetLocalRot;
@@ -522,35 +599,27 @@ namespace FirstPersonCamera
                 }
                 else if (adsWeaponUseDirectSet)
                 {
-                    // 直接设置位置和旋转（已到达目标或不需要平滑）
                     gunTf.localPosition = targetLocalPos;
                     gunTf.localRotation = targetLocalRot;
                 }
                 else
                 {
-                    // 使用平滑插值（使用武器的瞄准速度）
-                    float lerpSpeed = currentAdsSpeed;
-                    float t = 1f - Mathf.Exp(-lerpSpeed * Time.unscaledDeltaTime);
+                    float t = 1f - Mathf.Exp(-currentAdsSpeed * Time.unscaledDeltaTime);
                     gunTf.localPosition = Vector3.Lerp(gunTf.localPosition, targetLocalPos, t);
                     gunTf.localRotation = Quaternion.Slerp(gunTf.localRotation, targetLocalRot, t);
                 }
             }
             else
             {
-                // 无父节点时，也使用相同的逻辑
                 if (adsIsSmoothingToTarget && adsWeaponUseDirectSet)
                 {
-                    // 平滑过渡阶段
-                    float t = 1f - Mathf.Exp(-adsWeaponLerpSpeed * Time.unscaledDeltaTime);
+                    float t = 1f - Mathf.Exp(-currentAdsSpeed * Time.unscaledDeltaTime);
                     gunTf.position = Vector3.Lerp(gunTf.position, targetWorldPos, t);
                     gunTf.rotation = Quaternion.Slerp(gunTf.rotation, targetWorldRot, t);
                     
-                    // 检查是否已经到达目标位置
-                    float posDist = Vector3.Distance(gunTf.position, targetWorldPos);
-                    float rotDist = Quaternion.Angle(gunTf.rotation, targetWorldRot);
-                    if (posDist < ADS_SMOOTH_THRESHOLD && rotDist < ADS_ROTATION_THRESHOLD)
+                    if (Vector3.Distance(gunTf.position, targetWorldPos) < ADS_SMOOTH_THRESHOLD &&
+                        Quaternion.Angle(gunTf.rotation, targetWorldRot) < ADS_ROTATION_THRESHOLD)
                     {
-                        // 到达目标，切换到直接设置模式
                         adsIsSmoothingToTarget = false;
                         gunTf.position = targetWorldPos;
                         gunTf.rotation = targetWorldRot;
@@ -558,13 +627,11 @@ namespace FirstPersonCamera
                 }
                 else if (adsWeaponUseDirectSet)
                 {
-                    // 直接设置位置和旋转
                     gunTf.position = targetWorldPos;
                     gunTf.rotation = targetWorldRot;
                 }
                 else
                 {
-                    // 使用平滑插值
                     float t = 1f - Mathf.Exp(-adsWeaponLerpSpeed * Time.unscaledDeltaTime);
                     gunTf.position = Vector3.Lerp(gunTf.position, targetWorldPos, t);
                     gunTf.rotation = Quaternion.Slerp(gunTf.rotation, targetWorldRot, t);
@@ -575,31 +642,29 @@ namespace FirstPersonCamera
         /// <summary>
         /// 恢复ADS武器到原始位置（如果需要）
         /// </summary>
-        /// <param name="resetOffset">是否重置Y偏移值</param>
+        /// <param name="resetOffset">是否重置X/Y/Z偏移值</param>
         private void RestoreAdsWeaponIfNeeded(bool resetOffset = false)
         {
             if (!adsCachedOrig || adsLastGunTransform == null) return;
             
-            // 平滑恢复到原本的局部位姿
             float t = 1f - Mathf.Exp(-adsWeaponLerpSpeed * Time.unscaledDeltaTime);
-            adsLastGunTransform.localPosition = Vector3.Lerp(adsLastGunTransform.localPosition, 
-                adsOriginalLocalPos, t);
-            adsLastGunTransform.localRotation = Quaternion.Slerp(adsLastGunTransform.localRotation, 
-                adsOriginalLocalRot, t);
+            adsLastGunTransform.localPosition = Vector3.Lerp(adsLastGunTransform.localPosition, adsOriginalLocalPos, t);
+            adsLastGunTransform.localRotation = Quaternion.Slerp(adsLastGunTransform.localRotation, adsOriginalLocalRot, t);
 
-            // 若已经非常接近原位，则清理缓存
             if ((adsLastGunTransform.localPosition - adsOriginalLocalPos).sqrMagnitude < 1e-6f)
             {
                 adsCachedOrig = false;
                 adsLastGunTransform = null;
                 if (resetOffset)
                 {
-                    adsYOffsetDelta = 0f; // 只在明确要求时重置Y偏移
-                    
-                    // 保存重置后的值
+                    adsYOffsetDelta = 0f;
+                    adsXOffsetDelta = 0f;
+                    adsZOffsetDelta = 0f;
                     if (currentGunTypeID != -1)
                     {
                         SaveGunYOffset(currentGunTypeID, adsYOffsetDelta);
+                        SaveGunXOffset(currentGunTypeID, adsXOffsetDelta);
+                        SaveGunZOffset(currentGunTypeID, adsZOffsetDelta);
                     }
                 }
             }
@@ -611,31 +676,33 @@ namespace FirstPersonCamera
         /// <param name="show">是否显示提示</param>
         private void UpdateAdsHint(bool show)
         {
-            // 功能开关：ADS 武器位移
             bool adsOffsetEnabled = true;
             try
             {
-                adsOffsetEnabled = FirstPersonCamera.Utilities.OptionsHelper.LoadInt(
-                    FirstPersonOptionsUI.EnableAdsOffsetKey, 1) == 1;
+                adsOffsetEnabled = OptionsHelper.LoadInt(FirstPersonOptionsUI.EnableAdsOffsetKey, 1) == 1;
             }
-            catch
-            {
-                adsOffsetEnabled = true;
-            }
+            catch { adsOffsetEnabled = true; }
             
-            // 创建UI（如果还没有，且在第一人称模式下）
             if (adsHintCanvas == null && isFirstPersonMode)
-            {
                 CreateAdsHintUI();
-            }
             
             if (adsHintCanvas == null || adsHintText == null) return;
             
-            // 显示或隐藏提示文字
             bool shouldShow = adsOffsetEnabled && show && isFirstPersonMode;
             if (adsHintText.gameObject.activeSelf != shouldShow)
-            {
                 adsHintText.gameObject.SetActive(shouldShow);
+            
+            // 更新提示文字根据当前模式
+            if (shouldShow)
+            {
+                string modeText = adsAdjustMode switch
+                {
+                    AdsAdjustMode.X => "左右",
+                    AdsAdjustMode.Y => "上下",
+                    AdsAdjustMode.Z => "前后",
+                    _ => "上下"
+                };
+                adsHintText.text = $"滚轮调整枪械{modeText}|[-]切换方向";
             }
         }
 
@@ -644,49 +711,43 @@ namespace FirstPersonCamera
         /// </summary>
         private void CreateAdsHintUI()
         {
-            if (adsHintCanvas != null) return; // 如果已经创建，不再创建
+            if (adsHintCanvas != null) return;
 
             try
             {
-                // 创建Canvas
                 adsHintCanvas = new GameObject("AdsHintCanvas");
-                Object.DontDestroyOnLoad(adsHintCanvas); // 防止场景切换时被销毁
+                DontDestroyOnLoad(adsHintCanvas);
                 Canvas canvas = adsHintCanvas.AddComponent<Canvas>();
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                canvas.sortingOrder = 1000; // 确保在最上层
+                canvas.sortingOrder = 1000;
                 CanvasScaler scaler = adsHintCanvas.AddComponent<CanvasScaler>();
                 scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
                 scaler.referenceResolution = new Vector2(1920, 1080);
                 scaler.matchWidthOrHeight = 0.5f;
                 adsHintCanvas.AddComponent<GraphicRaycaster>();
 
-                // 创建文本对象
                 GameObject textGO = new GameObject("AdsHintText");
                 textGO.transform.SetParent(adsHintCanvas.transform, false);
                 RectTransform rectTransform = textGO.AddComponent<RectTransform>();
                 rectTransform.anchorMin = new Vector2(0.5f, 0f);
                 rectTransform.anchorMax = new Vector2(0.5f, 0f);
                 rectTransform.pivot = new Vector2(0.5f, 0f);
-                rectTransform.anchoredPosition = new Vector2(0f, 120f); // 距离底部120像素
+                rectTransform.anchoredPosition = new Vector2(0f, 120f);
                 rectTransform.sizeDelta = new Vector2(600f, 40f);
 
                 adsHintText = textGO.AddComponent<TextMeshProUGUI>();
-                adsHintText.text = "滚轮可以调整枪械高度";
+                adsHintText.text = "滚轮调整枪械高度"; // 初始文字
                 adsHintText.fontSize = 24f;
                 adsHintText.color = new Color(1f, 1f, 1f, 0.8f);
                 adsHintText.alignment = TextAlignmentOptions.Center;
                 adsHintText.enableWordWrapping = false;
 
-                // 添加阴影效果以提高可读性
                 Shadow shadow = textGO.AddComponent<Shadow>();
                 shadow.effectColor = new Color(0f, 0f, 0f, 0.8f);
                 shadow.effectDistance = new Vector2(2f, -2f);
 
-                adsHintCanvas.SetActive(true); // 创建后默认激活，由UpdateAdsHint控制显示
-                if (adsHintText != null)
-                {
-                    adsHintText.gameObject.SetActive(true);
-                }
+                adsHintCanvas.SetActive(true);
+                if (adsHintText != null) adsHintText.gameObject.SetActive(true);
             }
             catch (System.Exception ex)
             {
@@ -715,4 +776,3 @@ namespace FirstPersonCamera
         #endregion
     }
 }
-

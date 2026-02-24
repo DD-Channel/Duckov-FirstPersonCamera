@@ -1,98 +1,333 @@
+using System;
 using System.Reflection;
+using System.Text;
 using HarmonyLib;
 using UnityEngine;
 using Duckov.Utilities;
 using FirstPersonCamera.OptionsUI;
 using FirstPersonCamera.Utilities;
+using System.Collections.Generic;
 
 namespace FirstPersonCamera
 {
     /// <summary>
-    /// Harmony补丁：第一人称模式下重写激光器逻辑，使其从发射器位置出射并指向准星的世界瞄准点。
-    /// 保留原版的碰撞判断，真实挡到时会提前命中障碍。
+    /// 激光器补丁核心逻辑（共享）
     /// </summary>
-    
-    /// <summary>
-    /// 补丁原版的ShowHitMarker方法，在第一人称模式下禁用（仅对玩家角色）
-    /// </summary>
-    [HarmonyPatch(typeof(Accessory_Lazer), "ShowHitMarker")]
-    internal static class LaserShowHitMarkerPatch
+    internal static class LaserPatchCore
     {
-        public static bool Prefix(Accessory_Lazer __instance)
-        {
-            var controller = FirstPersonCameraController.Instance;
-            if (controller != null && controller.IsFirstPersonMode)
-            {
-                // 检查是否是玩家角色的激光器
-                var characterField = AccessTools.Field(typeof(Accessory_Lazer), "character");
-                var character = characterField?.GetValue(__instance) as CharacterMainControl;
-                var mainCharacter = CharacterMainControl.Main;
-                
-                // 只对玩家角色的激光器禁用原版逻辑
-                if (character == mainCharacter)
-                {
-                    // 第一人称模式下，我们的逻辑会处理红点，禁用原版逻辑
-                    return false;
-                }
-            }
-            return true; // 第三人称模式或非玩家角色，允许原版逻辑执行
-        }
-    }
-
-    /// <summary>
-    /// 补丁原版的HideHitMarker方法，在第一人称模式下禁用（仅对玩家角色）
-    /// </summary>
-    [HarmonyPatch(typeof(Accessory_Lazer), "HideHitMarker")]
-    internal static class LaserHideHitMarkerPatch
-    {
-        public static bool Prefix(Accessory_Lazer __instance)
-        {
-            var controller = FirstPersonCameraController.Instance;
-            if (controller != null && controller.IsFirstPersonMode)
-            {
-                // 检查是否是玩家角色的激光器
-                var characterField = AccessTools.Field(typeof(Accessory_Lazer), "character");
-                var character = characterField?.GetValue(__instance) as CharacterMainControl;
-                var mainCharacter = CharacterMainControl.Main;
-                
-                // 只对玩家角色的激光器禁用原版逻辑
-                if (character == mainCharacter)
-                {
-                    // 第一人称模式下，我们的逻辑会处理红点，禁用原版逻辑
-                    return false;
-                }
-            }
-            return true; // 第三人称模式或非玩家角色，允许原版逻辑执行
-        }
-    }
-
-    [HarmonyPatch(typeof(Accessory_Lazer))]
-    [HarmonyPatch("Update")]
-    internal static class LaserPatch
-    {
+        // 字段缓存（Accessory_Lazer）
         private static readonly FieldInfo lineRendererField = AccessTools.Field(typeof(Accessory_Lazer), "lineRenderer");
-        private static readonly FieldInfo characterField = AccessTools.Field(typeof(Accessory_Lazer), "character");
         private static readonly FieldInfo hitLayersField = AccessTools.Field(typeof(Accessory_Lazer), "hitLayers");
         private static readonly FieldInfo hitMarkerField = AccessTools.Field(typeof(Accessory_Lazer), "hitMarker");
         private static readonly FieldInfo localPointsField = AccessTools.Field(typeof(Accessory_Lazer), "localPoints");
 
-        // 存储每个激光实例的最终点位置，用于LateUpdate中更新红点
-        private static readonly System.Collections.Generic.Dictionary<Accessory_Lazer, Vector3> finalPoints = 
-            new System.Collections.Generic.Dictionary<Accessory_Lazer, Vector3>();
+        // TecLazer 相关
+        private static Type tecLazerType;
+        private static FieldInfo tecLineRendererField;
+        private static FieldInfo tecHitLayersField;
+        private static FieldInfo tecHitMarkerField;
+        private static FieldInfo tecLocalPointsField;
+        private static FieldInfo tecCharacterField;
 
-        // 激光开关状态（默认开启）
+        // 忽略极近命中的最小距离（米），用于枪口嵌入情况
+        private const float MIN_HIT_DISTANCE = 0.1f;
+
+        // 当激光线长度小于此值时隐藏激光（米）- 调整为 1.2 米以解决近距离问题
+        private const float LASER_LENGTH_HIDE_THRESHOLD = 1.1f;
+
+        static LaserPatchCore()
+        {
+            tecLazerType = AccessTools.TypeByName("TecLazer");
+            if (tecLazerType != null)
+            {
+                // 尝试匹配常用字段名
+                foreach (var field in tecLazerType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                {
+                    if (field.Name.Equals("lineRenderer") || field.Name.Equals("m_lineRenderer"))
+                        tecLineRendererField = field;
+                    else if (field.Name.Equals("hitLayers") || field.Name.Equals("m_hitLayers"))
+                        tecHitLayersField = field;
+                    else if (field.Name.Equals("hitMarker") || field.Name.Equals("m_hitMarker"))
+                        tecHitMarkerField = field;
+                    else if (field.Name.Equals("localPoints") || field.Name.Equals("m_localPoints"))
+                        tecLocalPointsField = field;
+                    else if (field.Name.Equals("character") || field.Name.Equals("m_character"))
+                        tecCharacterField = field;
+                }
+                // 保底：使用默认字段名（与 Accessory_Lazer 相同）
+                if (tecLineRendererField == null) tecLineRendererField = AccessTools.Field(tecLazerType, "lineRenderer");
+                if (tecHitLayersField == null) tecHitLayersField = AccessTools.Field(tecLazerType, "hitLayers");
+                if (tecHitMarkerField == null) tecHitMarkerField = AccessTools.Field(tecLazerType, "hitMarker");
+                if (tecLocalPointsField == null) tecLocalPointsField = AccessTools.Field(tecLazerType, "localPoints");
+                if (tecCharacterField == null) tecCharacterField = AccessTools.Field(tecLazerType, "character");
+            }
+        }
+
+        // 存储每个激光实例的最终点位置，用于LateUpdate中更新红点
+        public static readonly Dictionary<Component, Vector3> finalPoints = new Dictionary<Component, Vector3>();
+
+        // 激光开关状态
         private static bool isLaserEnabled = true;
-        
-        // 上次检测快捷键的帧数（用于避免重复触发）
         private static int lastToggleFrame = -1;
 
         /// <summary>
-        /// Harmony前缀拦截，仅在第一人称下生效，第三人称走原版逻辑
+        /// 从激光器实例获取所属角色（通用方法）
         /// </summary>
-        public static bool Prefix(Accessory_Lazer __instance)
+        public static CharacterMainControl GetCharacterFromLaser(Component laser)
+        {
+            if (laser == null) return null;
+
+            var parentChar = laser.GetComponentInParent<CharacterMainControl>();
+            if (parentChar != null)
+                return parentChar;
+
+            if (laser is Accessory_Lazer)
+            {
+                var charField = AccessTools.Field(typeof(Accessory_Lazer), "character");
+                if (charField != null)
+                {
+                    var charFromField = charField.GetValue(laser) as CharacterMainControl;
+                    if (charFromField != null)
+                        return charFromField;
+                }
+            }
+            else if (tecLazerType != null && tecLazerType.IsInstanceOfType(laser))
+            {
+                if (tecCharacterField != null)
+                {
+                    var charFromField = tecCharacterField.GetValue(laser) as CharacterMainControl;
+                    if (charFromField != null)
+                        return charFromField;
+                }
+            }
+
+            try
+            {
+                Type gunType = AccessTools.TypeByName("ItemAgent_Gun") ??
+                               AccessTools.TypeByName("ItemAgentGun") ??
+                               AccessTools.TypeByName("GunItemAgent");
+                if (gunType != null)
+                {
+                    var gun = laser.GetComponentInParent(gunType) as Component;
+                    if (gun != null)
+                    {
+                        string[] possibleFieldNames = { "carrier", "owner", "character", "m_carrier", "m_owner", "m_character", "holder" };
+                        foreach (string fieldName in possibleFieldNames)
+                        {
+                            var field = AccessTools.Field(gunType, fieldName);
+                            if (field != null)
+                            {
+                                var carrier = field.GetValue(gun) as CharacterMainControl;
+                                if (carrier != null)
+                                    return carrier;
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 显示命中标记器
+        /// </summary>
+        public static void ShowHitMarker(Component instance, Vector3 point)
+        {
+            GameObject marker = null;
+            if (instance is Accessory_Lazer)
+                marker = hitMarkerField?.GetValue(instance) as GameObject;
+            else if (tecLazerType != null && tecLazerType.IsInstanceOfType(instance))
+                marker = tecHitMarkerField?.GetValue(instance) as GameObject;
+
+            if (marker != null)
+            {
+                if (!marker.activeSelf)
+                    marker.SetActive(true);
+                marker.transform.position = point;
+            }
+        }
+
+        /// <summary>
+        /// 隐藏命中标记器
+        /// </summary>
+        public static void HideHitMarker(Component instance)
+        {
+            GameObject marker = null;
+            if (instance is Accessory_Lazer)
+                marker = hitMarkerField?.GetValue(instance) as GameObject;
+            else if (tecLazerType != null && tecLazerType.IsInstanceOfType(instance))
+                marker = tecHitMarkerField?.GetValue(instance) as GameObject;
+
+            if (marker != null && marker.activeSelf)
+                marker.SetActive(false);
+        }
+
+        /// <summary>
+        /// 获取 LineRenderer（辅助方法）
+        /// </summary>
+        private static LineRenderer GetLineRenderer(Component instance)
+        {
+            if (instance is Accessory_Lazer)
+                return lineRendererField?.GetValue(instance) as LineRenderer;
+            else if (tecLazerType != null && tecLazerType.IsInstanceOfType(instance))
+                return tecLineRendererField?.GetValue(instance) as LineRenderer;
+            return null;
+        }
+
+        /// <summary>
+        /// 获取 hitLayers（辅助方法）
+        /// </summary>
+        private static LayerMask GetHitLayers(Component instance)
+        {
+            if (instance is Accessory_Lazer)
+            {
+                if (hitLayersField != null)
+                {
+                    var value = hitLayersField.GetValue(instance);
+                    return value is LayerMask mask ? mask : (LayerMask)(int)value;
+                }
+            }
+            else if (tecLazerType != null && tecLazerType.IsInstanceOfType(instance))
+            {
+                if (tecHitLayersField != null)
+                {
+                    var value = tecHitLayersField.GetValue(instance);
+                    return value is LayerMask mask ? mask : (LayerMask)(int)value;
+                }
+            }
+            return Physics.DefaultRaycastLayers;
+        }
+
+        /// <summary>
+        /// 重置 LineRenderer 为本地空间（退出第一人称时恢复原版行为）
+        /// </summary>
+        private static void ResetLineRendererSpace(Component instance)
+        {
+            var renderer = GetLineRenderer(instance);
+            if (renderer != null)
+                renderer.useWorldSpace = false;
+        }
+
+        /// <summary>
+        /// 检测发射器是否被遮挡
+        /// </summary>
+        private static bool CheckEmitterObstruction(Vector3 emitterPosition, CharacterMainControl character, LayerMask hitLayers)
+        {
+            try
+            {
+                var controller = FirstPersonCameraController.Instance;
+                Vector3 cameraPosition = Vector3.zero;
+                if (controller != null)
+                {
+                    var mainCameraField = AccessTools.Field(typeof(FirstPersonCameraController), "mainCamera");
+                    if (mainCameraField != null)
+                    {
+                        var cam = mainCameraField.GetValue(controller) as Camera;
+                        if (cam != null)
+                            cameraPosition = cam.transform.position;
+                    }
+                }
+                if (cameraPosition == Vector3.zero)
+                {
+                    var cam = GameCamera.Instance?.renderCamera;
+                    if (cam != null)
+                        cameraPosition = cam.transform.position;
+                }
+                if (cameraPosition == Vector3.zero)
+                    return false;
+
+                Vector3 toCamera = cameraPosition - emitterPosition;
+                float distanceToCamera = toCamera.magnitude;
+                if (distanceToCamera < 0.1f)
+                    return false;
+
+                Vector3 checkDirection = toCamera.normalized;
+                float checkDistance = Mathf.Clamp(distanceToCamera, 0.5f, 2.0f);
+
+                const float offsetDistance = 0.05f;
+                Vector3 rayStart = emitterPosition + checkDirection * offsetDistance;
+                float rayDistance = checkDistance - offsetDistance;
+
+                if (rayDistance > 0.01f)
+                {
+                    LayerMask obstructionLayers = hitLayers;
+                    bool hasNearByHalfObsticle = false;
+                    try
+                    {
+                        if (character != null)
+                        {
+                            hasNearByHalfObsticle = character.HasNearByHalfObsticle();
+                            if (hasNearByHalfObsticle)
+                            {
+                                int halfObsticleLayer = LayerMask.NameToLayer("HalfObsticle");
+                                if (halfObsticleLayer >= 0)
+                                    obstructionLayers &= ~(1 << halfObsticleLayer);
+                            }
+                        }
+                    }
+                    catch { }
+
+                    if (Physics.Raycast(rayStart, checkDirection, out RaycastHit hit, rayDistance, obstructionLayers, QueryTriggerInteraction.Ignore))
+                    {
+                        if (character != null && character.mainDamageReceiver != null)
+                        {
+                            var damageReceiver = hit.collider.GetComponent<DamageReceiver>();
+                            if (damageReceiver != null && damageReceiver.health != null)
+                            {
+                                var hitCharacter = damageReceiver.health.TryGetCharacter();
+                                if (hitCharacter == character)
+                                    return false;
+                            }
+                        }
+                        if (hasNearByHalfObsticle)
+                        {
+                            try
+                            {
+                                if (GameplayDataSettings.LayersData.IsLayerInLayerMask(hit.collider.gameObject.layer, GameplayDataSettings.Layers.halfObsticleLayer))
+                                    return false;
+                                var damageReceiver = hit.collider.GetComponent<DamageReceiver>();
+                                if (damageReceiver != null && damageReceiver.isHalfObsticle)
+                                    return false;
+                            }
+                            catch { }
+                        }
+                        return true;
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        /// <summary>
+        /// 检测激光开关快捷键
+        /// </summary>
+        private static void CheckLaserToggleKey()
+        {
+            try
+            {
+                if (lastToggleFrame == Time.frameCount)
+                    return;
+
+                KeyCode toggleKey = OptionsHelper.LoadKeyCode(OptionsUIConstants.LaserToggleKeyCodeKey, KeyCode.None);
+                if (toggleKey != KeyCode.None && Input.GetKeyDown(toggleKey))
+                {
+                    isLaserEnabled = !isLaserEnabled;
+                    lastToggleFrame = Time.frameCount;
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// 激光器更新核心逻辑
+        /// </summary>
+        public static bool Prefix(Component __instance)
         {
             var controller = FirstPersonCameraController.Instance;
-            
+
             // 非第一人称模式：恢复原版逻辑，返回true让原方法执行
             if (controller == null || !controller.IsFirstPersonMode)
             {
@@ -103,51 +338,40 @@ namespace FirstPersonCamera
             // 如果正在检视武器，禁用激光
             if (controller.IsInspectingWeapon)
             {
-                var lineRendererForInspect = lineRendererField?.GetValue(__instance) as LineRenderer;
-                if (lineRendererForInspect != null)
-                {
-                    lineRendererForInspect.enabled = false;
-                }
+                var renderer = GetLineRenderer(__instance);
+                if (renderer != null)
+                    renderer.enabled = false;
                 HideHitMarker(__instance);
                 finalPoints.Remove(__instance);
-                return false; // 跳过原更新
+                return false;
             }
-            
+
             // 检测激光开关快捷键
             CheckLaserToggleKey();
-            
-            // 获取LineRenderer组件（激光发射器）
-            var lineRenderer = lineRendererField?.GetValue(__instance) as LineRenderer;
-            
+
+            // 获取LineRenderer组件
+            var lineRenderer = GetLineRenderer(__instance);
+
             // 如果激光被禁用，隐藏激光和红点
             if (!isLaserEnabled)
             {
                 if (lineRenderer != null)
-                {
                     lineRenderer.enabled = false;
-                }
                 HideHitMarker(__instance);
                 finalPoints.Remove(__instance);
-                return false; // 跳过原更新
+                return false;
             }
             if (lineRenderer == null)
-            {
-                return true; // LineRenderer不存在，走原版逻辑
-            }
+                return true;
 
             // 获取角色信息
-            var character = characterField?.GetValue(__instance) as CharacterMainControl;
+            var character = GetCharacterFromLaser(__instance);
             if (character == null)
-            {
-                return true; // 角色不存在，走原版逻辑
-            }
+                return true;
 
-            // 关键修复：只对玩家角色的激光器应用第一人称逻辑
-            // 敌人的激光器应该走原版逻辑，不应该锁定到玩家的准星
             var mainCharacter = CharacterMainControl.Main;
             if (character != mainCharacter)
             {
-                // 不是玩家角色，走原版逻辑
                 ResetLineRendererSpace(__instance);
                 return true;
             }
@@ -159,63 +383,49 @@ namespace FirstPersonCamera
             if (!isAiming)
             {
                 HideHitMarker(__instance);
-                finalPoints.Remove(__instance); // 清除存储的最终点
-                return false; // 跳过原更新
+                finalPoints.Remove(__instance);
+                return false;
             }
 
-            // 检查摄像机上下角度（pitch）是否在允许范围内（±30度）
+            // 检查摄像机上下角度（pitch）
             float pitch = 0f;
             try
             {
                 var pitchField = AccessTools.Field(typeof(FirstPersonCameraController), "pitch");
                 if (pitchField != null && controller != null)
-                {
                     pitch = (float)pitchField.GetValue(controller);
-                }
             }
             catch { }
 
-            // 如果pitch角度超过±30度，隐藏激光和红点
             const float maxPitchAngle = 15f;
             if (Mathf.Abs(pitch) > maxPitchAngle)
             {
                 lineRenderer.enabled = false;
                 HideHitMarker(__instance);
                 finalPoints.Remove(__instance);
-                return false; // 跳过原更新
+                return false;
             }
 
-            // 起点：激光发射器（LineRenderer所在节点）的世界坐标
+            // 起点：激光发射器的世界坐标
             Vector3 emitterPosition = lineRenderer.transform.position;
 
-            // 获取原组件的hitLayers（需要先获取，用于遮挡检测）
-            LayerMask hitLayers;
-            if (hitLayersField != null)
-            {
-                var value = hitLayersField.GetValue(__instance);
-                hitLayers = value is LayerMask mask ? mask : (LayerMask)(int)value;
-            }
-            else
-            {
-                hitLayers = Physics.DefaultRaycastLayers;
-            }
+            // 获取原组件的hitLayers
+            LayerMask hitLayers = GetHitLayers(__instance);
 
-            // 检测发射器是否被遮挡（从发射器向相机方向做短距离检测）
+            // 检测发射器是否被遮挡
             bool isEmitterObstructed = CheckEmitterObstruction(emitterPosition, character, hitLayers);
-            
-            // 如果发射器被遮挡，隐藏激光和红点
             if (isEmitterObstructed)
             {
                 lineRenderer.enabled = false;
                 HideHitMarker(__instance);
                 finalPoints.Remove(__instance);
-                return false; // 跳过原更新
+                return false;
             }
 
-            // 终点：获取当前基于相机前向与我们自定义规则计算出的"世界瞄准点"（与准星一致）
+            // 终点：当前瞄准点
             Vector3 aimPoint = controller.GetCurrentAimWorldPoint();
 
-            // 抗抖逻辑（非插值）：对瞄准点做轻量位置量化（0.01m），抑制微小噪声，不引入时间延迟
+            // 抗抖量化
             const float quantizeStep = 0.01f;
             aimPoint = new Vector3(
                 Mathf.Round(aimPoint.x / quantizeStep) * quantizeStep,
@@ -223,14 +433,12 @@ namespace FirstPersonCamera
                 Mathf.Round(aimPoint.z / quantizeStep) * quantizeStep
             );
 
-            // 计算从发射器到量化后的瞄准点的方向
+            // 计算从发射器到瞄准点的方向
             Vector3 direction = (aimPoint - emitterPosition);
             float distance = direction.magnitude;
 
-            // 处理距离过小的情况
             if (distance < 0.01f)
             {
-                // 如果瞄准点与发射器位置几乎重合，使用发射器前向方向
                 direction = lineRenderer.transform.forward;
                 distance = Mathf.Max(character.GetAimRange(), 50f);
             }
@@ -239,372 +447,201 @@ namespace FirstPersonCamera
                 direction = direction.normalized;
             }
 
-            // 从发射器朝向瞄准点方向做Physics.Raycast，使用原组件的hitLayers
-            // 若中途被挡则终点改为命中点，实现"正常受阻"
-            Vector3 finalPoint = aimPoint; // 默认终点就是量化后的准星瞄准点
-            if (Physics.Raycast(emitterPosition, direction, out RaycastHit hit, distance, hitLayers, QueryTriggerInteraction.Ignore))
-            {
-                // 中途被阻挡，终点改为命中点
-                // 对命中点做轻量位置量化（0.01m），抑制微小噪声，不引入时间延迟
-                finalPoint = new Vector3(
-                    Mathf.Round(hit.point.x / quantizeStep) * quantizeStep,
-                    Mathf.Round(hit.point.y / quantizeStep) * quantizeStep,
-                    Mathf.Round(hit.point.z / quantizeStep) * quantizeStep
-                );
-            }
-
-            // 检查玩家是否在沙袋附近，如果在附近则隐藏红点
+            // ========== 关键修改：构建射线检测掩码，如果附近有半遮挡物则排除半遮挡层 ==========
+            LayerMask raycastMask = hitLayers;
             bool hasNearByHalfObsticle = false;
             try
             {
                 if (character != null)
                 {
                     hasNearByHalfObsticle = character.HasNearByHalfObsticle();
+                    if (hasNearByHalfObsticle)
+                    {
+                        int halfObsticleLayer = LayerMask.NameToLayer("HalfObsticle");
+                        if (halfObsticleLayer >= 0)
+                        {
+                            // 排除半遮挡层，使射线可以穿透沙袋
+                            raycastMask &= ~(1 << halfObsticleLayer);
+                        }
+                    }
                 }
             }
             catch { }
 
-            if (hasNearByHalfObsticle)
+            // 射线检测障碍（使用调整后的掩码）
+            Vector3 finalPoint = aimPoint;
+            if (Physics.Raycast(emitterPosition, direction, out RaycastHit hit, distance, raycastMask, QueryTriggerInteraction.Ignore))
             {
-                // 玩家在沙袋附近，隐藏红点
-                HideHitMarker(__instance);
-            }
-            else
-            {
-                // 玩家不在沙袋附近，显示红点
-                ShowHitMarker(__instance, finalPoint);
+                if (hit.distance >= MIN_HIT_DISTANCE)
+                {
+                    finalPoint = new Vector3(
+                        Mathf.Round(hit.point.x / quantizeStep) * quantizeStep,
+                        Mathf.Round(hit.point.y / quantizeStep) * quantizeStep,
+                        Mathf.Round(hit.point.z / quantizeStep) * quantizeStep
+                    );
+                }
             }
 
-            // 绘制：LineRenderer改为useWorldSpace = true，设置两端点为起点/终点
+            // 计算激光线长度，如果小于阈值则隐藏
+            float laserLength = Vector3.Distance(emitterPosition, finalPoint);
+            if (laserLength < LASER_LENGTH_HIDE_THRESHOLD)
+            {
+                lineRenderer.enabled = false;
+                HideHitMarker(__instance);
+                finalPoints.Remove(__instance);
+                return false;
+            }
+
+            // 显示红点
+            ShowHitMarker(__instance, finalPoint);
+
+            // 绘制激光线
             lineRenderer.positionCount = 2;
             lineRenderer.useWorldSpace = true;
             lineRenderer.SetPosition(0, emitterPosition);
             lineRenderer.SetPosition(1, finalPoint);
 
-            // 存储最终点位置，用于LateUpdate中更新红点
+            // 存储最终点
             finalPoints[__instance] = finalPoint;
 
-            // 清空原版的localPoints，防止原版逻辑干扰
-            // 原版逻辑使用localPoints和useWorldSpace=false，我们必须确保这些不会影响我们的渲染
-            if (localPointsField != null)
-            {
-                localPointsField.SetValue(__instance, null);
-            }
+            // 清空原版的localPoints
+            if (__instance is Accessory_Lazer)
+                localPointsField?.SetValue(__instance, null);
+            else if (tecLocalPointsField != null && tecLazerType.IsInstanceOfType(__instance))
+                tecLocalPointsField.SetValue(__instance, null);
 
-            // 强制确保useWorldSpace为true，防止被其他代码修改
-            lineRenderer.useWorldSpace = true;
-
-            // 返回false跳过原更新，完全禁用原版逻辑
             return false;
         }
 
         /// <summary>
-        /// 显示命中标记器
-        /// </summary>
-        private static void ShowHitMarker(Accessory_Lazer instance, Vector3 point)
-        {
-            if (hitMarkerField?.GetValue(instance) is GameObject marker)
-            {
-                if (!marker.activeSelf)
-                {
-                    marker.SetActive(true);
-                }
-                // 直接设置世界空间位置
-                marker.transform.position = point;
-            }
-        }
-
-        /// <summary>
-        /// 在LateUpdate中强制更新所有激光的红点位置
-        /// 确保红点位置在所有其他更新之后被设置，防止被其他代码覆盖
+        /// 在LateUpdate中强制更新所有激光的红点位置（供外部调用）
         /// </summary>
         public static void LateUpdateHitMarkers()
         {
             var controller = FirstPersonCameraController.Instance;
             if (controller == null || !controller.IsFirstPersonMode)
-            {
                 return;
-            }
 
-            // 遍历所有存储的最终点，强制更新红点位置（只处理玩家角色的激光器）
             var mainCharacter = CharacterMainControl.Main;
-            var keys = new System.Collections.Generic.List<Accessory_Lazer>(finalPoints.Keys);
+            var keys = new List<Component>(finalPoints.Keys);
             foreach (var instance in keys)
             {
                 if (instance == null) continue;
 
-                // 检查是否是玩家角色的激光器
-                var character = characterField?.GetValue(instance) as CharacterMainControl;
+                var character = GetCharacterFromLaser(instance);
                 if (character != mainCharacter)
                 {
-                    // 不是玩家角色，从字典中移除，不再处理
                     finalPoints.Remove(instance);
                     continue;
                 }
 
                 if (finalPoints.TryGetValue(instance, out Vector3 finalPoint))
                 {
-                    if (hitMarkerField?.GetValue(instance) is GameObject marker)
-                    {
-                        bool hasNearByHalfObsticle = false;
-                        
-                        try
-                        {
-                            if (character != null)
-                            {
-                                hasNearByHalfObsticle = character.HasNearByHalfObsticle();
-                            }
-                        }
-                        catch { }
+                    GameObject marker = null;
+                    if (instance is Accessory_Lazer)
+                        marker = hitMarkerField?.GetValue(instance) as GameObject;
+                    else if (tecLazerType != null && tecLazerType.IsInstanceOfType(instance))
+                        marker = tecHitMarkerField?.GetValue(instance) as GameObject;
 
-                        if (hasNearByHalfObsticle)
-                        {
-                            // 玩家在沙袋附近，隐藏红点
-                            if (marker.activeSelf)
-                            {
-                                marker.SetActive(false);
-                            }
-                        }
-                        else
-                        {
-                            // 玩家不在沙袋附近，显示并更新红点位置
-                            if (!marker.activeSelf)
-                            {
-                                marker.SetActive(true);
-                            }
-                            // 强制更新红点位置到最终点
-                            marker.transform.position = finalPoint;
-                        }
+                    if (marker != null)
+                    {
+                        if (!marker.activeSelf)
+                            marker.SetActive(true);
+                        marker.transform.position = finalPoint;
                     }
                 }
             }
         }
 
-        /// <summary>
-        /// 隐藏命中标记器
-        /// </summary>
-        private static void HideHitMarker(Accessory_Lazer instance)
+        public static bool GetLaserEnabled() => isLaserEnabled;
+        public static void SetLaserEnabled(bool enabled) => isLaserEnabled = enabled;
+    }
+
+    public static class LaserPatch
+    {
+        public static bool GetLaserEnabled() => LaserPatchCore.GetLaserEnabled();
+        public static void SetLaserEnabled(bool enabled) => LaserPatchCore.SetLaserEnabled(enabled);
+        public static void LateUpdateHitMarkers() => LaserPatchCore.LateUpdateHitMarkers();
+        public static CharacterMainControl GetCharacterFromLaser(Component laser) => LaserPatchCore.GetCharacterFromLaser(laser);
+    }
+
+    [HarmonyPatch(typeof(Accessory_Lazer), "ShowHitMarker")]
+    internal static class LaserShowHitMarkerPatch
+    {
+        public static bool Prefix(Accessory_Lazer __instance)
         {
-            if (hitMarkerField?.GetValue(instance) is GameObject marker && marker.activeSelf)
+            var controller = FirstPersonCameraController.Instance;
+            if (controller != null && controller.IsFirstPersonMode)
             {
-                marker.SetActive(false);
+                var character = LaserPatchCore.GetCharacterFromLaser(__instance);
+                var mainCharacter = CharacterMainControl.Main;
+                if (character == mainCharacter)
+                    return false;
             }
+            return true;
         }
+    }
 
-        /// <summary>
-        /// 检测发射器是否被遮挡
-        /// 从发射器位置向相机方向（或发射器前向）做短距离射线检测
-        /// </summary>
-        private static bool CheckEmitterObstruction(Vector3 emitterPosition, CharacterMainControl character, LayerMask hitLayers)
+    [HarmonyPatch(typeof(Accessory_Lazer), "HideHitMarker")]
+    internal static class LaserHideHitMarkerPatch
+    {
+        public static bool Prefix(Accessory_Lazer __instance)
         {
-            try
+            var controller = FirstPersonCameraController.Instance;
+            if (controller != null && controller.IsFirstPersonMode)
             {
-                // 获取相机位置和方向
-                var controller = FirstPersonCameraController.Instance;
-                Vector3 cameraPosition = Vector3.zero;
-                Vector3 cameraForward = Vector3.forward;
-                
-                if (controller != null)
-                {
-                    // 通过反射获取mainCamera
-                    var mainCameraField = AccessTools.Field(typeof(FirstPersonCameraController), "mainCamera");
-                    if (mainCameraField != null)
-                    {
-                        var cam = mainCameraField.GetValue(controller) as Camera;
-                        if (cam != null)
-                        {
-                            cameraPosition = cam.transform.position;
-                            cameraForward = cam.transform.forward;
-                        }
-                    }
-                }
-
-                // 如果无法获取相机，使用发射器前向方向
-                if (cameraPosition == Vector3.zero)
-                {
-                    var cam = GameCamera.Instance != null ? GameCamera.Instance.renderCamera : null;
-                    if (cam != null)
-                    {
-                        cameraPosition = cam.transform.position;
-                        cameraForward = cam.transform.forward;
-                    }
-                }
-
-                // 计算从发射器到相机的方向
-                Vector3 toCamera = cameraPosition - emitterPosition;
-                float distanceToCamera = toCamera.magnitude;
-                
-                // 如果距离太近，使用发射器前向方向
-                Vector3 checkDirection;
-                float checkDistance;
-                
-                if (distanceToCamera < 0.1f)
-                {
-                    // 无法确定相机位置，使用发射器前向
-                    // 这里我们需要获取LineRenderer的transform
-                    return false; // 无法检测，假设不被遮挡
-                }
-                else
-                {
-                    checkDirection = toCamera.normalized;
-                    // 检测距离：发射器到相机的距离，但限制在合理范围内（0.5米到2米）
-                    checkDistance = Mathf.Clamp(distanceToCamera, 0.5f, 2.0f);
-                }
-
-                // 执行射线检测，检查发射器是否被遮挡
-                // 使用一个小的偏移量，避免检测到发射器本身
-                const float offsetDistance = 0.05f;
-                Vector3 rayStart = emitterPosition + checkDirection * offsetDistance;
-                float rayDistance = checkDistance - offsetDistance;
-
-                if (rayDistance > 0.01f)
-                {
-                    // 检查是否有附近的半遮挡物（如沙袋）
-                    bool hasNearByHalfObsticle = false;
-                    LayerMask obstructionLayers = hitLayers;
-                    
-                    try
-                    {
-                        if (character != null)
-                        {
-                            hasNearByHalfObsticle = character.HasNearByHalfObsticle();
-                            
-                            // 如果有附近的半遮挡物，需要从射线检测中排除HalfObsticle层
-                            if (hasNearByHalfObsticle)
-                            {
-                                int halfObsticleLayer = LayerMask.NameToLayer("HalfObsticle");
-                                if (halfObsticleLayer >= 0)
-                                {
-                                    // 排除HalfObsticle层，使射线可以穿透半遮挡物
-                                    obstructionLayers &= (~(1 << halfObsticleLayer));
-                                }
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        // 半遮挡物检查失败时使用默认层掩码
-                    }
-
-                    // 执行射线检测
-                    if (Physics.Raycast(rayStart, checkDirection, out RaycastHit hit, rayDistance, obstructionLayers, QueryTriggerInteraction.Ignore))
-                    {
-                        // 检查是否命中角色自身（不应该因为角色自身而隐藏激光）
-                        if (character != null && character.mainDamageReceiver != null)
-                        {
-                            var damageReceiver = hit.collider.GetComponent<DamageReceiver>();
-                            if (damageReceiver != null && damageReceiver.health != null)
-                            {
-                                var hitCharacter = damageReceiver.health.TryGetCharacter();
-                                if (hitCharacter == character)
-                                {
-                                    // 命中的是角色自身，不算遮挡
-                                    return false;
-                                }
-                            }
-                        }
-
-                        // 如果有附近的半遮挡物，检查是否命中的是半遮挡物
-                        if (hasNearByHalfObsticle)
-                        {
-                            try
-                            {
-                                // 检查是否命中HalfObsticle层
-                                if (GameplayDataSettings.LayersData.IsLayerInLayerMask(hit.collider.gameObject.layer, GameplayDataSettings.Layers.halfObsticleLayer))
-                                {
-                                    // 命中的是半遮挡物，不算遮挡
-                                    return false;
-                                }
-                                
-                                // 检查DamageReceiver是否是半遮挡物
-                                var damageReceiver = hit.collider.GetComponent<DamageReceiver>();
-                                if (damageReceiver != null && damageReceiver.isHalfObsticle)
-                                {
-                                    // 命中的是半遮挡物，不算遮挡
-                                    return false;
-                                }
-                            }
-                            catch
-                            {
-                                // 检查失败，继续判断为遮挡
-                            }
-                        }
-                        
-                        // 检测到遮挡
-                        return true;
-                    }
-                }
+                var character = LaserPatchCore.GetCharacterFromLaser(__instance);
+                var mainCharacter = CharacterMainControl.Main;
+                if (character == mainCharacter)
+                    return false;
             }
-            catch
-            {
-                // 检测失败，假设不被遮挡
-            }
-
-            return false; // 没有被遮挡
+            return true;
         }
+    }
 
-        /// <summary>
-        /// 检测激光开关快捷键
-        /// </summary>
-        private static void CheckLaserToggleKey()
+    [HarmonyPatch(typeof(Accessory_Lazer), "Update")]
+    internal static class LaserUpdatePatch
+    {
+        public static bool Prefix(Accessory_Lazer __instance) => LaserPatchCore.Prefix(__instance);
+    }
+
+    [HarmonyPatch(typeof(TecLazer), "Update")]
+    internal static class TecLaserUpdatePatch
+    {
+        public static bool Prefix(TecLazer __instance) => LaserPatchCore.Prefix(__instance);
+    }
+
+    [HarmonyPatch(typeof(TecLazer), "ShowHitMarker")]
+    internal static class TecLaserShowHitMarkerPatch
+    {
+        public static bool Prefix(TecLazer __instance)
         {
-            try
+            var controller = FirstPersonCameraController.Instance;
+            if (controller != null && controller.IsFirstPersonMode)
             {
-                // 避免同一帧重复检测
-                if (lastToggleFrame == Time.frameCount)
-                {
-                    return;
-                }
-
-                // 加载快捷键配置
-                KeyCode toggleKey = OptionsHelper.LoadKeyCode(OptionsUIConstants.LaserToggleKeyCodeKey, KeyCode.None);
-                
-                // 如果快捷键未设置（KeyCode.None），则不检测
-                if (toggleKey == KeyCode.None)
-                {
-                    return;
-                }
-
-                // 检测按键按下
-                if (Input.GetKeyDown(toggleKey))
-                {
-                    isLaserEnabled = !isLaserEnabled;
-                    lastToggleFrame = Time.frameCount;
-                }
+                var character = LaserPatchCore.GetCharacterFromLaser(__instance);
+                var mainCharacter = CharacterMainControl.Main;
+                if (character == mainCharacter)
+                    return false;
             }
-            catch
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(TecLazer), "HideHitMarker")]
+    internal static class TecLaserHideHitMarkerPatch
+    {
+        public static bool Prefix(TecLazer __instance)
+        {
+            var controller = FirstPersonCameraController.Instance;
+            if (controller != null && controller.IsFirstPersonMode)
             {
-                // 检测失败时静默处理
+                var character = LaserPatchCore.GetCharacterFromLaser(__instance);
+                var mainCharacter = CharacterMainControl.Main;
+                if (character == mainCharacter)
+                    return false;
             }
-        }
-
-        /// <summary>
-        /// 重置LineRenderer为本地空间（退出第一人称时恢复原版行为）
-        /// </summary>
-        private static void ResetLineRendererSpace(Accessory_Lazer instance)
-        {
-            if (lineRendererField?.GetValue(instance) is LineRenderer renderer)
-            {
-                renderer.useWorldSpace = false;
-            }
-            // 恢复原版的localPoints（如果需要的话，让原版逻辑可以正常工作）
-            // 注意：这里不清空，让原版逻辑自己初始化
-        }
-        
-        /// <summary>
-        /// 获取激光是否启用（公共方法，供外部调用）
-        /// </summary>
-        public static bool GetLaserEnabled()
-        {
-            return isLaserEnabled;
-        }
-        
-        /// <summary>
-        /// 设置激光是否启用（公共方法，供外部调用）
-        /// </summary>
-        public static void SetLaserEnabled(bool enabled)
-        {
-            isLaserEnabled = enabled;
+            return true;
         }
     }
 }

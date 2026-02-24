@@ -1,165 +1,77 @@
 using System;
-using System.Reflection;
 using UnityEngine;
 using FirstPersonCamera.Utilities;
 
 namespace FirstPersonCamera
 {
     /// <summary>
-    /// 战争迷雾控制模块
-    /// 在第一人称模式下控制战争迷雾的显示/隐藏
+    /// 第一人称相机控制器 - 战争迷雾控制模块
+    /// 注意：实际控制已由 Harmony 补丁 Patch_FogOfWarManager_Update 接管，
+    /// 本模块仅负责订阅角色死亡事件，以便在必要时清理状态（ConditionalWeakTable 会自动管理）。
     /// </summary>
     public partial class FirstPersonCameraController
     {
         #region 战争迷雾控制字段
         /// <summary>
-        /// FogOfWarManager 实例（通过反射获取）
+        /// 是否已订阅角色死亡事件
         /// </summary>
-        private MonoBehaviour fogOfWarManager;
-        
-        /// <summary>
-        /// FogOfWarManager 的 allVision 字段（通过反射获取）
-        /// </summary>
-        private FieldInfo allVisionField;
-        
-        /// <summary>
-        /// 原始 allVision 值（用于恢复）
-        /// </summary>
-        private bool? originalAllVision;
-        
-        /// <summary>
-        /// 是否已初始化战争迷雾控制
-        /// </summary>
-        private bool fogOfWarControlInitialized;
+        private bool subscribedToDeathEvent;
         #endregion
-        
+
         #region 战争迷雾控制方法
         /// <summary>
-        /// 初始化战争迷雾控制
+        /// 初始化战争迷雾控制：订阅角色死亡事件
         /// </summary>
         private void InitializeFogOfWarControl()
         {
-            if (fogOfWarControlInitialized)
-            {
-                return;
-            }
-            
+            if (subscribedToDeathEvent) return;
+
             try
             {
-                // 在所有 MonoBehaviour 中查找 FogOfWarManager
-                MonoBehaviour[] allMonoBehaviours = GameObject.FindObjectsOfType<MonoBehaviour>();
-                fogOfWarManager = null;
-                
-                foreach (MonoBehaviour mb in allMonoBehaviours)
-                {
-                    if (mb != null && mb.GetType().Name == "FogOfWarManager")
-                    {
-                        fogOfWarManager = mb;
-                        break;
-                    }
-                }
-                
-                if (fogOfWarManager == null)
-                {
-                    FPLogger.Log("未找到 FogOfWarManager，跳过战争迷雾控制初始化");
-                    fogOfWarControlInitialized = true;
-                    return;
-                }
-                
-                // 获取类型
-                Type fogOfWarManagerType = fogOfWarManager.GetType();
-                
-                // 获取 allVision 字段
-                allVisionField = fogOfWarManagerType.GetField("allVision", 
-                    BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
-                
-                if (allVisionField == null)
-                {
-                    FPLogger.LogWarning("未找到 FogOfWarManager.allVision 字段，跳过战争迷雾控制初始化");
-                    fogOfWarControlInitialized = true;
-                    return;
-                }
-                
-                fogOfWarControlInitialized = true;
-                FPLogger.Log("战争迷雾控制初始化成功");
+                LevelManager.OnMainCharacterDead += OnMainCharacterDead;
+                subscribedToDeathEvent = true;
+                FPLogger.Log("战争迷雾控制：已订阅角色死亡事件");
             }
             catch (Exception ex)
             {
                 FPLogger.LogException(ex, "初始化战争迷雾控制失败");
-                fogOfWarControlInitialized = true;
             }
         }
-        
+
         /// <summary>
-        /// 更新战争迷雾状态（在第一人称模式切换时调用）
+        /// 更新战争迷雾状态（已被 Harmony 补丁替代，此方法保留为空以避免编译错误）
         /// </summary>
         private void UpdateFogOfWarState()
         {
-            // 如果未初始化，尝试初始化
-            if (!fogOfWarControlInitialized)
-            {
-                InitializeFogOfWarControl();
-            }
-            
-            // 如果初始化失败，直接返回
-            if (fogOfWarManager == null || allVisionField == null)
-            {
-                return;
-            }
-            
-            try
-            {
-                // 检查设置：是否启用去除战争迷雾
-                bool disableFogOfWar = OptionsHelper.LoadInt(OptionsUIConstants.DisableFogOfWarKey, 0) == 1;
-                
-                // 仅在第一人称模式下应用
-                if (isFirstPersonMode && disableFogOfWar)
-                {
-                    // 保存原始值（如果还没有保存）
-                    if (originalAllVision == null)
-                    {
-                        originalAllVision = (bool)allVisionField.GetValue(fogOfWarManager);
-                    }
-                    
-                    // 设置全视野（去除战争迷雾）
-                    allVisionField.SetValue(fogOfWarManager, true);
-                }
-                else
-                {
-                    // 恢复原始值
-                    if (originalAllVision != null)
-                    {
-                        allVisionField.SetValue(fogOfWarManager, originalAllVision.Value);
-                        originalAllVision = null;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                FPLogger.LogException(ex, "更新战争迷雾状态失败");
-            }
+            // Harmony 补丁已接管，无需任何操作
         }
-        
+
         /// <summary>
-        /// 清理战争迷雾控制（在禁用第一人称模式时调用）
+        /// 清理战争迷雾控制：取消事件订阅
         /// </summary>
         private void CleanupFogOfWarControl()
         {
+            if (!subscribedToDeathEvent) return;
+
             try
             {
-                // 恢复原始值
-                if (fogOfWarManager != null && allVisionField != null && originalAllVision != null)
-                {
-                    allVisionField.SetValue(fogOfWarManager, originalAllVision.Value);
-                    originalAllVision = null;
-                }
+                LevelManager.OnMainCharacterDead -= OnMainCharacterDead;
+                subscribedToDeathEvent = false;
+                FPLogger.Log("战争迷雾控制：已取消角色死亡事件订阅");
             }
             catch (Exception ex)
             {
                 FPLogger.LogException(ex, "清理战争迷雾控制失败");
             }
         }
+
+        /// <summary>
+        /// 角色死亡事件处理：记录日志，Harmony 补丁的 ConditionalWeakTable 会自动清理关联条目
+        /// </summary>
+        private void OnMainCharacterDead(DamageInfo dmgInfo)
+        {
+            FPLogger.Log("角色死亡，战争迷雾管理器即将重建，ConditionalWeakTable 关联将自动失效");
+        }
         #endregion
     }
 }
-
