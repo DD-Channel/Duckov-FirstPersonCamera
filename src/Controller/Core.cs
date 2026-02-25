@@ -790,6 +790,8 @@ namespace FirstPersonCamera
 
             // 恢复跳跃输入绑定
             try { RestoreJumpInput(); } catch { }
+            // 新增：恢复ADS准星到原始状态
+            RestoreAdsCrosshair();
         }
         #endregion
 
