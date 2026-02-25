@@ -1,98 +1,84 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace FirstPersonCamera
 {
-    /// <summary>
-    /// 第一人称相机控制器 - 后坐力恢复系统模块
-    /// 负责处理后坐力的恢复逻辑，使用指数衰减实现平滑回弹
-    /// </summary>
     public partial class FirstPersonCameraController
     {
         #region 后坐力恢复系统
-        /// <summary>
-        /// 更新后坐力恢复
-        /// 后坐力回弹系统：现代FPS设计思路
-        /// - 连续射击时：后坐力累积，不恢复
-        /// - 停止射击时：松开鼠标后开始恢复，使用指数衰减
-        /// - 基于枪械属性：使用RecoilRecover和RecoilRecoverTime
-        /// </summary>
+
+        // ========== 需要恢复后坐力的枪械类型列表（请根据实际游戏 TypeID 填写） ==========
+        private HashSet<int> rifleTypeIDs = new HashSet<int>
+        {
+            // 示例：AK47 改进型 (10122), AK-103 改进型 (10129), M14 EBR (10103)
+            10122, 10129, 10103,
+            // 添加其他步枪 TypeID
+        };
+
+        private HashSet<int> sniperTypeIDs = new HashSet<int>
+        {
+            // 示例：AWP [NEX] (10109), M700 改进型 (10111), VKS (95808)
+            10109, 10111, 95808,
+            // 添加其他狙击枪 TypeID
+        };
+
         private void UpdateRecoilRecovery()
         {
-            // 如果没有累积后坐力，直接返回
             if (accumulatedRecoilV == 0f && accumulatedRecoilH == 0f) return;
-            
-            // 如果正在射击，不恢复后坐力（让后坐力累积）
-            // 注意：isShooting在Core.cs中定义，通过partial class共享
-            if (isShooting) return;
-            
-            // 获取枪械的恢复属性
-            float recoverRate = 8f; // 默认恢复速度（每秒恢复系数）
-            float recoverTime = 0.3f; // 默认恢复时间（秒）
-            
-            if (currentRecoilGun != null)
+            if (isShooting) return; // 射击时不恢复
+            if (recoveryPaused) return; // 切枪后暂停恢复（直到再次射击）
+
+            // 获取当前武器
+            if (currentRecoilGun == null) return;
+            int typeID = currentRecoilGun.Item.TypeID;
+
+            // ========== 判断是否需要恢复：仅步枪和狙击枪需要恢复 ==========
+            bool shouldRecover = rifleTypeIDs.Contains(typeID) || sniperTypeIDs.Contains(typeID);
+            if (!shouldRecover)
             {
-                try
-                {
-                    // 使用枪械的RecoilRecover属性（如果存在）
-                    float gunRecover = currentRecoilGun.RecoilRecover;
-                    if (gunRecover > 0f)
-                    {
-                        // RecoilRecover通常是一个速度值，转换为恢复系数
-                        recoverRate = gunRecover * 10f; // 调整系数以匹配实际游戏体验
-                    }
-                    
-                    // 使用枪械的RecoilRecoverTime属性
-                    float gunRecoverTime = currentRecoilGun.RecoilRecoverTime;
-                    if (gunRecoverTime > 0f)
-                    {
-                        recoverTime = gunRecoverTime;
-                        // 根据恢复时间调整恢复速度（约3倍时间常数）
-                        recoverRate = 3f / Mathf.Max(0.1f, recoverTime);
-                    }
-                }
-                catch
-                {
-                    // 获取枪械属性失败时使用默认值
-                }
+                // 其他枪械（霰弹、冲锋枪等）不恢复
+                return;
             }
-            
-            // 计算恢复系数：使用指数衰减公式
-            // 公式：newValue = oldValue * exp(-rate * deltaTime)
-            // 这样恢复速度会随时间逐渐变慢，符合现代FPS游戏的手感
+
+            // 从当前武器获取散布恢复速率
+            float scatterRecover = 1f;
+            try
+            {
+                scatterRecover = currentRecoilGun.ScatterRecover;
+            }
+            catch { }
+
+            // 将散布恢复速率转换为后坐力恢复速率（系数10可调）
+            float baseRecoverRate = scatterRecover * 8f;
+
+            // 动态恢复因子：累积后坐力越大，恢复越快
+            float totalMagnitude = Mathf.Abs(accumulatedRecoilV) + Mathf.Abs(accumulatedRecoilH);
+            float dynamicFactor = 1f + totalMagnitude * 1f; // 系数可调
+            float recoverRate = baseRecoverRate * dynamicFactor;
+
             float recoverFactor = Mathf.Exp(-recoverRate * Time.unscaledDeltaTime);
-            
-            // 恢复垂直后坐力（向上回弹）
+
+            // 恢复垂直
             if (accumulatedRecoilV > 0.001f)
             {
                 float oldV = accumulatedRecoilV;
-                accumulatedRecoilV *= recoverFactor; // 指数衰减
+                accumulatedRecoilV *= recoverFactor;
                 float recoveredV = oldV - accumulatedRecoilV;
-                pitch += recoveredV; // 恢复pitch（向上回弹）
+                pitch += recoveredV;
                 pitch = Mathf.Clamp(pitch, -89f, 89f);
-                
-                // 清理微小值
-                if (accumulatedRecoilV < 0.001f)
-                {
-                    accumulatedRecoilV = 0f;
-                }
+                if (accumulatedRecoilV < 0.001f) accumulatedRecoilV = 0f;
             }
-            
-            // 恢复水平后坐力（向中心回弹）
+
+            // 恢复水平
             if (Mathf.Abs(accumulatedRecoilH) > 0.001f)
             {
                 float oldH = accumulatedRecoilH;
-                accumulatedRecoilH *= recoverFactor; // 指数衰减
+                accumulatedRecoilH *= recoverFactor;
                 float recoveredH = oldH - accumulatedRecoilH;
-                yaw -= recoveredH; // 恢复yaw（向中心回弹）
-                
-                // 清理微小值
-                if (Mathf.Abs(accumulatedRecoilH) < 0.001f)
-                {
-                    accumulatedRecoilH = 0f;
-                }
+                yaw -= recoveredH;
+                if (Mathf.Abs(accumulatedRecoilH) < 0.001f) accumulatedRecoilH = 0f;
             }
         }
         #endregion
     }
 }
-

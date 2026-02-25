@@ -2,6 +2,7 @@ using HarmonyLib;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Reflection;
+using FirstPersonCamera;
 
 namespace FirstPersonCamera
 {
