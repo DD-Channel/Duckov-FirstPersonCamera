@@ -259,7 +259,7 @@ namespace FirstPersonCamera
         /// <summary>
         /// 后坐力强度最大值
         /// </summary>
-        public const float RecoilStrengthMax = 0.25f;
+        public const float RecoilStrengthMax = 0.5f;
         
         /// <summary>
         /// 后坐力强度默认值
