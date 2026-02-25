@@ -1,356 +1,347 @@
 using UnityEngine;
+using FirstPersonCamera.Utilities;
+using FirstPersonCamera.OptionsUI;
+using System.Collections.Generic;
 
 namespace FirstPersonCamera
 {
     /// <summary>
-    /// 第一人称相机控制器 - 后坐力应用系统模块
-    /// 负责处理射击时的后坐力应用，包括后坐力值映射、高斯随机分布、水平后坐力模式化等
+    /// 武器类别枚举，用于区分不同枪械类型以应用不同后坐力参数
     /// </summary>
+    public enum WeaponCategory
+    {
+        Unknown,    // 未知类型，通常归类为步枪作为默认
+        PistolSMG,  // 手枪/冲锋枪
+        Rifle,      // 步枪
+        Shotgun,    // 霰弹枪
+        Sniper      // 狙击枪
+    }
+
     public partial class FirstPersonCameraController
     {
+        // ************** 武器 TypeID 集合（请根据实际游戏填写） **************
+
+        /// <summary>
+        /// 手枪/冲锋枪的 TypeID 集合
+        /// </summary>
+        private static readonly HashSet<int> PistolSMGIds = new HashSet<int>
+        {
+            252,254,258,260,262,391,450,655,733,734,735,736,737,783,784,914,915,916,917,943,
+            946,1058,1060,1061,1128,1209,1302,1396,1433,10108,10112,10116,10117,10118,10119,
+            10120,10121,10136,10141,95606,95615,95804
+        };
+
+        /// <summary>
+        /// 步枪的 TypeID 集合
+        /// </summary>
+        private static readonly HashSet<int> RifleIds = new HashSet<int>
+        {
+            238,240,242,244,256,652,653,654,659,680,681,682,683,788,862,1055,1056,1238,1260,1286,
+            1287,1300,1301,1362,1374,1521,10101,10102,10103,10104,10105,10106,10107,10114,10122,
+            10123,10124,10125,10126,10127,10129,10137,10138,10139,10140,95601,95602,95613,95612,
+            95803,95806,95807,95814
+        };
+
+        /// <summary>
+        /// 狙击枪的 TypeID 集合
+        /// </summary>
+        private static readonly HashSet<int> SniperIds = new HashSet<int>
+        {
+            246,327,357,407,437,656,780,781,782,785,786,787,1057,1289,1298,1299,1480,1497,10109,
+            10111,10113,10115,10128,10135,10142,10143,95605,95604,95616,95805,95808
+        };
+
+        // 如果你也想用 TypeID 控制霰弹枪（而不是依靠 ShotCount），可以取消下面注释并填写
+        // private static readonly HashSet<int> ShotgunIds = new HashSet<int>
+        // {
+        //     // 霰弹枪 TypeID
+        // };
+
         #region 后坐力系统字段
-        /// <summary>
-        /// 累积的垂直后坐力（向上偏移）
-        /// </summary>
+        /// <summary>累积的垂直后坐力（用于恢复）</summary>
         private float accumulatedRecoilV = 0f;
-        
-        /// <summary>
-        /// 累积的水平后坐力（左右偏移）
-        /// </summary>
+        /// <summary>累积的水平后坐力（用于恢复）</summary>
         private float accumulatedRecoilH = 0f;
-        
-        /// <summary>
-        /// 当前使用的武器（用于获取恢复属性）
-        /// </summary>
+        /// <summary>当前正在使用的武器（用于检测切换）</summary>
         private ItemAgent_Gun currentRecoilGun = null;
-        
-        /// <summary>
-        /// 水平后坐力模式计数器（用于创建模式化后坐力）
-        /// </summary>
+        /// <summary>水平后坐力方向模式计数器</summary>
         private int horizontalRecoilPattern = 0;
-        
-        /// <summary>
-        /// 上次水平后坐力方向（用于模式化）
-        /// </summary>
-        private float lastHorizontalDirection = 1f;
-        
-        /// <summary>
-        /// 是否正在射击（用于控制后坐力累积和恢复）
-        /// </summary>
+        /// <summary>上一次的水平方向（用于模式延续）</summary>
+        private float lastHorizontalDirection = 0.8f;
+        /// <summary>是否正在连续射击</summary>
         private bool isShooting = false;
-        
-        /// <summary>
-        /// 最近几发子弹的垂直后坐力记录（用于回弹计算）
-        /// </summary>
-        private System.Collections.Generic.List<float> recentRecoilV = 
-            new System.Collections.Generic.List<float>();
-        
-        /// <summary>
-        /// 最近几发子弹的水平后坐力记录（用于回弹计算）
-        /// </summary>
-        private System.Collections.Generic.List<float> recentRecoilH = 
-            new System.Collections.Generic.List<float>();
-        
-        /// <summary>
-        /// 最大记录的后坐力数量（用于回弹计算）
-        /// </summary>
-        private const int MAX_RECENT_RECOIL = 3;
-        
-        /// <summary>
-        /// 水平后坐力模式重置阈值（每N发重置模式）
-        /// </summary>
+        /// <summary>最近几次的垂直后坐力（用于鼠标松开时的重置）</summary>
+        private List<float> recentRecoilV = new List<float>();
+        /// <summary>最近几次的水平后坐力（用于鼠标松开时的重置）</summary>
+        private List<float> recentRecoilH = new List<float>();
+        /// <summary>最多保留的最近后坐力次数</summary>
+        private const int MAX_RECENT_RECOIL = 10;
+        /// <summary>水平后坐力模式重置阈值（每10次重置方向模式）</summary>
         private const int HORIZONTAL_RECOIL_PATTERN_RESET = 10;
-        
-        /// <summary>
-        /// 水平后坐力方向延续概率（70%延续，30%反转）
-        /// </summary>
+        /// <summary>水平方向延续概率</summary>
         private const float HORIZONTAL_DIRECTION_CONTINUE_CHANCE = 0.7f;
-        
-        /// <summary>
-        /// 水平后坐力随机反转概率（10%完全反转）
-        /// </summary>
-        private const float HORIZONTAL_DIRECTION_RANDOM_CHANCE = 0.1f;
-        
-        /// <summary>
-        /// 高斯随机数的标准差（用于水平后坐力分布）
-        /// </summary>
-        private const float GAUSSIAN_STD_DEV = 0.3f;
-        
-        /// <summary>
-        /// 高斯因子应用到水平后坐力的基础倍数
-        /// </summary>
-        private const float GAUSSIAN_BASE_MULTIPLIER = 0.5f;
-        
-        /// <summary>
-        /// 高斯因子应用到水平后坐力的范围倍数
-        /// </summary>
-        private const float GAUSSIAN_RANGE_MULTIPLIER = 0.5f;
+        /// <summary>水平方向随机翻转概率</summary>
+        private const float HORIZONTAL_DIRECTION_RANDOM_CHANCE = 0.5f;
+        /// <summary>高斯随机数的标准差</summary>
+        private const float GAUSSIAN_STD_DEV = 0.5f;
+        /// <summary>高斯随机数的基础乘数</summary>
+        private const float GAUSSIAN_BASE_MULTIPLIER = 1.35f;
+        /// <summary>高斯随机数的范围乘数</summary>
+        private const float GAUSSIAN_RANGE_MULTIPLIER = 0.6f;
+
+        // 各类武器后坐力乘数（可随时调整数值以适配手感）
+        /// <summary>霰弹枪垂直后坐力乘数</summary>
+        private float shotgunVerticalRecoilMultiplier = 2.5f;
+        /// <summary>霰弹枪水平后坐力乘数</summary>
+        private float shotgunHorizontalRecoilMultiplier = 1.2f;
+        /// <summary>手枪/冲锋枪垂直后坐力乘数</summary>
+        private float smgVerticalRecoilMultiplier = 0.65f;
+        /// <summary>手枪/冲锋枪水平后坐力乘数</summary>
+        private float smgHorizontalRecoilMultiplier = 0.65f;
+        /// <summary>狙击枪垂直后坐力乘数</summary>
+        private float sniperVerticalRecoilMultiplier = 0.15f;
+        /// <summary>狙击枪水平后坐力乘数</summary>
+        private float sniperHorizontalRecoilMultiplier = 0.15f;
+        /// <summary>步枪垂直后坐力乘数</summary>
+        private float rifleVerticalRecoilMultiplier = 0.5f;
+        /// <summary>步枪水平后坐力乘数</summary>
+        private float rifleHorizontalRecoilMultiplier = 0.6f;
+        /// <summary>未知武器垂直后坐力乘数（默认值）</summary>
+        private float unknownVerticalRecoilMultiplier = 1.0f;
+        /// <summary>未知武器水平后坐力乘数（默认值）</summary>
+        private float unknownHorizontalRecoilMultiplier = 1.0f;
+
+        /// <summary>是否暂停后坐力恢复（用于武器切换等）</summary>
+        private bool recoveryPaused = false;
         #endregion
 
         #region 后坐力应用逻辑
         /// <summary>
-        /// 处理鼠标松开时的后坐力重置
-        /// 当松开鼠标时，停止射击标记，并重置累积后坐力为最近几发子弹的后坐力总和
+        /// 鼠标松开时重置后坐力，保留最近三次的累积值
         /// </summary>
         private void HandleMouseReleaseRecoilReset()
         {
             if (!isShooting) return;
-            
+            if (currentRecoilGun != null && currentRecoilGun.ShotCount > 1)
+                return; // 霰弹枪不重置
             isShooting = false;
-            
-            // 只保留最近几发子弹的后坐力用于回弹
-            // 清除更早的后坐力记录
-            float last3RecoilV = 0f;
-            float last3RecoilH = 0f;
-            
-            // 计算最近几发子弹的后坐力总和
+
+            float last3RecoilV = 0f, last3RecoilH = 0f;
             for (int i = 0; i < recentRecoilV.Count; i++)
             {
                 last3RecoilV += recentRecoilV[i];
                 last3RecoilH += recentRecoilH[i];
             }
-            
-            // 重置累积后坐力为最近几发子弹的后坐力
             accumulatedRecoilV = last3RecoilV;
             accumulatedRecoilH = last3RecoilH;
-            
-            // 清空记录（已转移到累积后坐力中）
             recentRecoilV.Clear();
             recentRecoilH.Clear();
         }
 
         /// <summary>
-        /// 开火回调：根据武器配置施加垂直和水平后坐力（使用重新设计的后坐力映射系统）
+        /// 角色射击事件处理，计算并应用后坐力
         /// </summary>
-        /// <param name="agent">武器代理</param>
         private void OnCharacterShoot(DuckovItemAgent agent)
         {
             if (!isFirstPersonMode) return;
             if (agent == null) return;
-            
+
             ItemAgent_Gun gun = agent as ItemAgent_Gun;
             if (gun == null) return;
-            
+
             try
             {
-                // 检查后坐力功能是否启用
-                bool recoilEnabled = true;
-                try
-                {
-                    recoilEnabled = FirstPersonCamera.Utilities.OptionsHelper.LoadInt(
-                        FirstPersonOptionsUI.EnableRecoilKey, 1) == 1;
-                }
-                catch
-                {
-                    recoilEnabled = true;
-                }
-                
+                bool recoilEnabled = OptionsHelper.LoadInt(FirstPersonOptionsUI.EnableRecoilKey, 1) == 1;
                 if (!recoilEnabled) return;
-                
-                // 获取后坐力倍数和强度
+
                 float recoilMult = 1f;
-                try
-                {
-                    recoilMult = LevelManager.Rule.RecoilMultiplier;
-                }
-                catch
-                {
-                    recoilMult = 1f;
-                }
-                
-                float strengthMult = 0.1f;
-                try
-                {
-                    strengthMult = FirstPersonCamera.Utilities.OptionsHelper.LoadFloat(
-                        FirstPersonOptionsUI.RecoilStrengthKey, 0.1f);
-                }
-                catch
-                {
-                    strengthMult = 0.1f;
-                }
-                
-                // 获取原版的后坐力数值（基础值）
+                try { recoilMult = LevelManager.Rule.RecoilMultiplier; } catch { }
+
+                float strengthMult = OptionsHelper.LoadFloat(FirstPersonOptionsUI.RecoilStrengthKey, 0.1f);
+
+                // 原版后坐力基础值映射
                 float origVMin = gun.RecoilVMin;
                 float origVMax = gun.RecoilVMax;
                 float origHMin = gun.RecoilHMin;
                 float origHMax = gun.RecoilHMax;
-                
-                // 使用映射函数将原版数据转换为更合理的后坐力值
-                float mappedVMin = MapRecoilValue(origVMin);
-                float mappedVMax = MapRecoilValue(origVMax);
-                float mappedHMin = MapRecoilValue(origHMin);
-                float mappedHMax = MapRecoilValue(origHMax);
-                
-                // 应用缩放系数和控制力
-                float v = UnityEngine.Random.Range(mappedVMin, mappedVMax) * 
-                          gun.RecoilScaleV * 
-                          (1f / Mathf.Max(0.01f, gun.CharacterRecoilControl)) * 
-                          recoilMult * 
-                          strengthMult;
-                
-                // 水平后坐力（现代FPS游戏设计思路）
-                // 使用更平滑的随机分布，并添加轻微的模式化特征
-                float hBase = UnityEngine.Random.Range(mappedHMin, mappedHMax) * 
-                             gun.RecoilScaleH * 
-                             (1f / Mathf.Max(0.01f, gun.CharacterRecoilControl)) * 
-                             recoilMult * 
-                             strengthMult;
-                
-                // 水平后坐力方向：使用更智能的分布
-                // 1. 有轻微的模式化倾向（不是完全随机，而是有轻微的方向延续性）
-                // 2. 使用高斯分布而不是均匀分布，使大多数情况更接近中心
+
+                float baseV = MapRecoilValue(UnityEngine.Random.Range(origVMin, origVMax));
+                float baseH = MapRecoilValue(UnityEngine.Random.Range(origHMin, origHMax));
+
+                // 散布动态因子
+                float currentScatter = gun.CurrentScatter;
+                float defaultScatter = gun.DefaultScatter;
+                float maxScatter = gun.MaxScatter;
+                float scatterGrow = gun.ScatterGrow;
+                float scatterRatio = Mathf.Clamp01((currentScatter - defaultScatter) / Mathf.Max(0.01f, maxScatter - defaultScatter));
+                float scatterFactor = 1f + scatterRatio * 1f;
+
+                // 垂直后坐力
+                float v = baseV * scatterFactor * gun.RecoilScaleV * (1f / Mathf.Max(0.01f, gun.CharacterRecoilControl)) * recoilMult * strengthMult;
+
+                // 水平方向
                 float hDirection;
                 if (horizontalRecoilPattern == 0)
                 {
-                    // 第一发：完全随机
                     hDirection = UnityEngine.Random.value > 0.5f ? 1f : -1f;
                 }
                 else
                 {
-                    // 后续发：70%概率延续上次方向，30%概率反转（创建轻微模式）
                     float patternChance = UnityEngine.Random.value;
-                    if (patternChance < HORIZONTAL_DIRECTION_CONTINUE_CHANCE)
-                    {
-                        // 延续上次方向
-                        hDirection = lastHorizontalDirection;
-                    }
-                    else
-                    {
-                        // 反转方向
-                        hDirection = -lastHorizontalDirection;
-                    }
-                    
-                    // 添加少量随机性（±10%的方向变化）
+                    hDirection = patternChance < HORIZONTAL_DIRECTION_CONTINUE_CHANCE ? lastHorizontalDirection : -lastHorizontalDirection;
                     if (UnityEngine.Random.value < HORIZONTAL_DIRECTION_RANDOM_CHANCE)
-                    {
-                        hDirection = -hDirection; // 10%概率完全反转
-                    }
+                        hDirection = -hDirection;
                 }
-                
-                // 使用高斯分布调整大小，使大多数射击更接近中心值
+
                 float gaussianFactor = Mathf.Clamp01(Mathf.Abs(GaussianRandom(0f, GAUSSIAN_STD_DEV)));
-                hBase = hBase * (GAUSSIAN_BASE_MULTIPLIER + GAUSSIAN_RANGE_MULTIPLIER * gaussianFactor);
-                
-                float h = hBase * hDirection;
-                
-                // 更新模式状态
+                float hBase = baseH * (GAUSSIAN_BASE_MULTIPLIER + GAUSSIAN_RANGE_MULTIPLIER * gaussianFactor);
+                float h = hBase * scatterFactor * hDirection * gun.RecoilScaleH * (1f / Mathf.Max(0.01f, gun.CharacterRecoilControl)) * recoilMult * strengthMult;
+
+                // 瞄准状态调整
+                float adsValue = gun.AdsValue;
+                if (adsValue > 0f)
+                {
+                    v *= 1.5f;
+                    h *= 1.5f;
+                }
+
+                // ========== 根据武器类别应用后坐力乘数 ==========
+                WeaponCategory category = GetWeaponCategory(gun);
+                FPLogger.Log($"[Recoil] 武器类别: {category}");
+
+                switch (category)
+                {
+                    case WeaponCategory.Shotgun:
+                        v *= shotgunVerticalRecoilMultiplier;
+                        h *= shotgunHorizontalRecoilMultiplier;
+                        FPLogger.Log("[Recoil] 霰弹枪乘数应用");
+                        break;
+                    case WeaponCategory.PistolSMG:
+                        v *= smgVerticalRecoilMultiplier;
+                        h *= smgHorizontalRecoilMultiplier;
+                        FPLogger.Log("[Recoil] 冲锋枪/手枪乘数应用");
+                        break;
+                    case WeaponCategory.Sniper:
+                        v *= sniperVerticalRecoilMultiplier;
+                        h *= sniperHorizontalRecoilMultiplier;
+                        FPLogger.Log("[Recoil] 狙击枪乘数应用");
+                        break;
+                    case WeaponCategory.Rifle:
+                        v *= rifleVerticalRecoilMultiplier;
+                        h *= rifleHorizontalRecoilMultiplier;
+                        FPLogger.Log("[Recoil] 步枪乘数应用");
+                        break;
+                    case WeaponCategory.Unknown:
+                    default:
+                        v *= unknownVerticalRecoilMultiplier;
+                        h *= unknownHorizontalRecoilMultiplier;
+                        FPLogger.Log("[Recoil] 未知武器乘数应用");
+                        break;
+                }
+
+                // 更新模式
                 horizontalRecoilPattern++;
                 lastHorizontalDirection = hDirection;
-                
-                // 每10发重置模式，避免过度模式化
                 if (horizontalRecoilPattern >= HORIZONTAL_RECOIL_PATTERN_RESET)
-                {
                     horizontalRecoilPattern = 0;
-                }
-                
-                // 如果切换了武器，重置累积后坐力
+
+                // 武器切换
                 if (currentRecoilGun != null && currentRecoilGun != gun)
                 {
-                    // 快速清除旧武器的后坐力，避免状态混乱
-                    accumulatedRecoilV = 0f;
-                    accumulatedRecoilH = 0f;
-                    horizontalRecoilPattern = 0; // 重置水平模式
-                    recentRecoilV.Clear(); // 清除最近几发子弹的记录
+                    horizontalRecoilPattern = 0;
+                    recentRecoilV.Clear();
                     recentRecoilH.Clear();
+                    recoveryPaused = true;
+                    ForceRecreateAdsMarker();
                 }
-                
-                // 记录当前武器（用于获取恢复属性）
                 currentRecoilGun = gun;
-                
-                // 标记正在射击
                 isShooting = true;
-                
-                // 记录最近几发子弹的后坐力（用于回弹）
+
                 recentRecoilV.Add(v);
                 recentRecoilH.Add(h);
-                
-                // 保持最多记录最近几发子弹
                 if (recentRecoilV.Count > MAX_RECENT_RECOIL)
                 {
-                    recentRecoilV.RemoveAt(0); // 移除最旧的记录
+                    recentRecoilV.RemoveAt(0);
                     recentRecoilH.RemoveAt(0);
                 }
-                
-                // 累积所有后坐力（用于立即应用）
+
                 accumulatedRecoilV += v;
                 accumulatedRecoilH += h;
-                
-                // 立即应用后坐力：垂直影响pitch，水平影响yaw
+
                 pitch = Mathf.Clamp(pitch - v, -89f, 89f);
                 yaw += h;
+
+                ApplyGunShake(v, h, adsValue, gun);
+                recoveryPaused = false;
             }
-            catch
-            {
-                // 处理失败时静默处理，避免影响游戏运行
-            }
+            catch { }
         }
 
         /// <summary>
-        /// 将原版的后坐力值映射到更合理的范围
-        /// 原版数据范围很大（0-50+），大多数武器在40左右无法压枪
-        /// 映射后保持相对差异，但压缩到合理可压的范围
+        /// 将原始后坐力值映射到自定义范围（用于平衡手感）
         /// </summary>
-        /// <param name="originalValue">原版的后坐力值</param>
-        /// <returns>映射后的后坐力值</returns>
         private float MapRecoilValue(float originalValue)
         {
-            // 使用分段映射函数，将原版数据压缩到合理范围
-            // 映射策略：
-            // 0-10: 线性映射到 0-2 (易压枪)
-            // 10-20: 线性映射到 2-4 (正常)
-            // 20-30: 使用平方根压缩映射到 4-6 (难压但可压)
-            // 30+: 使用对数压缩，映射到 6-8 (高后坐力但依然可压)
-            
             if (originalValue <= 0f) return 0f;
-            
-            if (originalValue <= 10f)
+            if (originalValue <= 10f) return originalValue * 0.2f;
+            if (originalValue <= 20f) return 2f + (originalValue - 10f) * 0.2f;
+            if (originalValue <= 30f)
             {
-                // 0-10 -> 0-2 (线性)
-                return originalValue * 0.2f;
+                float normalized = (originalValue - 20f) / 10f;
+                return 4f + Mathf.Sqrt(normalized) * 2f;
             }
-            else if (originalValue <= 20f)
+            if (originalValue <= 50f)
             {
-                // 10-20 -> 2-4 (线性)
-                return 2f + (originalValue - 10f) * 0.2f;
+                float normalized = (originalValue - 30f) / 20f;
+                return 6f + Mathf.Pow(normalized, 0.6f) * 2f;
             }
-            else if (originalValue <= 30f)
-            {
-                // 20-30 -> 4-6 (使用平方根压缩高值)
-                float normalized = (originalValue - 20f) / 10f; // 0-1
-                float compressed = Mathf.Sqrt(normalized); // 平方根压缩
-                return 4f + compressed * 2f;
-            }
-            else if (originalValue <= 50f)
-            {
-                // 30-50 -> 6-8 (使用对数进一步压缩)
-                float normalized = (originalValue - 30f) / 20f; // 0-1
-                // 使用更平滑的压缩曲线
-                float compressed = Mathf.Pow(normalized, 0.6f); // 幂函数压缩
-                return 6f + compressed * 2f;
-            }
-            else
-            {
-                // 50+ -> 8-9 (极高后坐力，但依然可压)
-                float excess = originalValue - 50f;
-                float compressed = Mathf.Log(excess + 1f) / Mathf.Log(50f); // 对数压缩
-                return 8f + Mathf.Clamp01(compressed) * 1f;
-            }
+            float excess = originalValue - 50f;
+            float compressed = Mathf.Log(excess + 1f) / Mathf.Log(50f);
+            return 8f + Mathf.Clamp01(compressed) * 1f;
         }
-        
+
         /// <summary>
-        /// 生成高斯分布的随机数（Box-Muller变换）
+        /// 生成高斯分布随机数（用于水平后坐力变化）
         /// </summary>
-        /// <param name="mean">均值</param>
-        /// <param name="stdDev">标准差</param>
-        /// <returns>高斯分布的随机数</returns>
         private float GaussianRandom(float mean, float stdDev)
         {
-            float u1 = 1f - UnityEngine.Random.value; // 避免0
+            float u1 = 1f - UnityEngine.Random.value;
             float u2 = 1f - UnityEngine.Random.value;
             float z0 = Mathf.Sqrt(-2f * Mathf.Log(u1)) * Mathf.Cos(2f * Mathf.PI * u2);
             return mean + stdDev * z0;
         }
+
+        /// <summary>
+        /// 根据武器 TypeID 判断武器类别（霰弹枪优先使用 ShotCount）
+        /// </summary>
+        private WeaponCategory GetWeaponCategory(ItemAgent_Gun gun)
+        {
+            // 霰弹枪通过 ShotCount 识别（保留原逻辑）
+            if (gun.ShotCount > 1)
+                return WeaponCategory.Shotgun;
+
+            // 确保 gun 和 Item 不为空
+            if (gun?.Item == null)
+                return WeaponCategory.Unknown;
+
+            int typeId = gun.Item.TypeID;
+
+            // 按集合判断武器类型
+            if (PistolSMGIds.Contains(typeId))
+                return WeaponCategory.PistolSMG;
+            if (RifleIds.Contains(typeId))
+                return WeaponCategory.Rifle;
+            if (SniperIds.Contains(typeId))
+                return WeaponCategory.Sniper;
+
+            // 如果用了霰弹枪集合，可以在这里判断
+            // if (ShotgunIds.Contains(typeId))
+            //     return WeaponCategory.Shotgun;
+
+            // 未知武器：记录日志并返回 Unknown，由后续逻辑处理
+            FPLogger.Log($"[GetWeaponCategory] 未知武器 TypeID={typeId}, Name={gun.Item.DisplayName}，归类为 Unknown");
+            return WeaponCategory.Unknown;
+        }
         #endregion
     }
 }
-

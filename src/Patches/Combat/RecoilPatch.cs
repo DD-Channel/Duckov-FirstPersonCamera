@@ -1,4 +1,5 @@
 using HarmonyLib;
+using FirstPersonCamera;
 
 namespace FirstPersonCamera
 {

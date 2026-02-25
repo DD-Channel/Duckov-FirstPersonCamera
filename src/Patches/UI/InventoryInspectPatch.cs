@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 using FirstPersonCamera.Utilities;
+using FirstPersonCamera;
 
 namespace FirstPersonCamera.Patches.UI
 {

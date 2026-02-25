@@ -434,8 +434,9 @@ namespace FirstPersonCamera
                     if (currentAdsSpeed <= 0f) currentAdsSpeed = DEFAULT_ADS_SPEED * ADS_SPEED_MULTIPLIER;
                 }
                 catch { currentAdsSpeed = DEFAULT_ADS_SPEED * ADS_SPEED_MULTIPLIER; }
-                
+                FPLogger.Log("[UpdateAdsWeaponPlacement] about to call UpdateScopeFOV");
                 UpdateScopeFOV(gun);
+                FPLogger.Log("[UpdateAdsWeaponPlacement] back from UpdateScopeFOV");
             }
             else if (adsReleaseTimer > 0f)
             {
@@ -482,6 +483,7 @@ namespace FirstPersonCamera
             if (!shouldAdsPlace)
             {
                 RestoreAdsWeaponIfNeeded();
+                RestoreAdsCrosshair(); // 退出瞄准时恢复准星
                 return;
             }
 

@@ -274,6 +274,9 @@ namespace FirstPersonCamera
                     suppressNextMouseDelta = false;
                 }
                 
+                // ========== 新增：压枪抵抗输入处理 ==========
+                SetRecoilResistance(mouseY); // 传递鼠标垂直增量
+                
                 // 根据当前倍镜倍率选择对应的灵敏度倍数（相对于普通灵敏度）
                 float currentSensitivityX = mouseSensitivityX;
                 float currentSensitivityY = mouseSensitivityY;
@@ -401,4 +404,3 @@ namespace FirstPersonCamera
         #endregion
     }
 }
-
