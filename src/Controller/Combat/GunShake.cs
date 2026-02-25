@@ -9,9 +9,9 @@ namespace FirstPersonCamera
         private Vector3 gunShakeVelocity;            // 用于 SmoothDamp 的速度缓存
 
         // 通用抖动参数（所有非狙击枪通用）
-        private float gunShakeSmoothTime = 0.2f;     // 平滑时间（越大回正越慢，运动越柔）
-        private float gunShakeIntensity = 0.35f;      // 基础强度系数
-        private float gunShakeAdsReduction = 0.17f;   // 瞄准时的强度衰减系数
+        private float gunShakeSmoothTime = 0.05f;     // 平滑时间（越大回正越慢，运动越柔）
+        private float gunShakeIntensity = 0.23f;      // 基础强度系数
+        private float gunShakeAdsReduction = 0.1f;   // 瞄准时的强度衰减系数
 
         // 压枪抵抗相关
         private float recoilResistanceFactor = 0.35f;    // 当前压枪抵抗因子，1=无抵抗，0=完全抵抗

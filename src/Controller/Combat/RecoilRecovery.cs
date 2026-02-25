@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using FirstPersonCamera.Utilities;
 
 namespace FirstPersonCamera
 {
@@ -7,78 +8,80 @@ namespace FirstPersonCamera
     {
         #region 后坐力恢复系统
 
-        // ========== 需要恢复后坐力的枪械类型列表（请根据实际游戏 TypeID 填写） ==========
-        private HashSet<int> rifleTypeIDs = new HashSet<int>
-        {
-            // 示例：AK47 改进型 (10122), AK-103 改进型 (10129), M14 EBR (10103)
-            10122, 10129, 10103,
-            // 添加其他步枪 TypeID
-        };
+        // ========== 狙击枪恢复参数 ==========
+        private float sniperRecoveryStartTime = -1f;
+        private float sniperRecoveryDuration = 0.15f;      // 恢复持续时间（秒）
+        private float sniperInitialV;
+        private float sniperInitialH;
 
-        private HashSet<int> sniperTypeIDs = new HashSet<int>
-        {
-            // 示例：AWP [NEX] (10109), M700 改进型 (10111), VKS (95808)
-            10109, 10111, 95808,
-            // 添加其他狙击枪 TypeID
-        };
-
+        // ========== 主恢复更新方法 ==========
         private void UpdateRecoilRecovery()
         {
-            if (accumulatedRecoilV == 0f && accumulatedRecoilH == 0f) return;
-            if (isShooting) return; // 射击时不恢复
-            if (recoveryPaused) return; // 切枪后暂停恢复（直到再次射击）
-
-            // 获取当前武器
-            if (currentRecoilGun == null) return;
-            int typeID = currentRecoilGun.Item.TypeID;
-
-            // ========== 判断是否需要恢复：仅步枪和狙击枪需要恢复 ==========
-            bool shouldRecover = rifleTypeIDs.Contains(typeID) || sniperTypeIDs.Contains(typeID);
-            if (!shouldRecover)
+            // 如果后坐力已经为零，重置狙击枪计时器
+            if (accumulatedRecoilV == 0f && accumulatedRecoilH == 0f)
             {
-                // 其他枪械（霰弹、冲锋枪等）不恢复
+                sniperRecoveryStartTime = -1f;
                 return;
             }
 
-            // 从当前武器获取散布恢复速率
-            float scatterRecover = 1f;
-            try
+            // 射击中不恢复
+            if (isShooting) return;
+            if (currentRecoilGun == null) return;
+
+            WeaponCategory category = GetWeaponCategory(currentRecoilGun);
+            FPLogger.Log($"[UpdateRecoilRecovery] weapon category: {category}");
+
+            // 只有狙击枪才进行恢复（完全回弹）
+            if (category == WeaponCategory.Sniper)
             {
-                scatterRecover = currentRecoilGun.ScatterRecover;
+                FPLogger.Log("[UpdateRecoilRecovery] entering sniper recovery");
+                SniperRecovery();
             }
-            catch { }
-
-            // 将散布恢复速率转换为后坐力恢复速率（系数10可调）
-            float baseRecoverRate = scatterRecover * 8f;
-
-            // 动态恢复因子：累积后坐力越大，恢复越快
-            float totalMagnitude = Mathf.Abs(accumulatedRecoilV) + Mathf.Abs(accumulatedRecoilH);
-            float dynamicFactor = 1f + totalMagnitude * 1f; // 系数可调
-            float recoverRate = baseRecoverRate * dynamicFactor;
-
-            float recoverFactor = Mathf.Exp(-recoverRate * Time.unscaledDeltaTime);
-
-            // 恢复垂直
-            if (accumulatedRecoilV > 0.001f)
+            else
             {
-                float oldV = accumulatedRecoilV;
-                accumulatedRecoilV *= recoverFactor;
-                float recoveredV = oldV - accumulatedRecoilV;
-                pitch += recoveredV;
-                pitch = Mathf.Clamp(pitch, -89f, 89f);
-                if (accumulatedRecoilV < 0.001f) accumulatedRecoilV = 0f;
-            }
-
-            // 恢复水平
-            if (Mathf.Abs(accumulatedRecoilH) > 0.001f)
-            {
-                float oldH = accumulatedRecoilH;
-                accumulatedRecoilH *= recoverFactor;
-                float recoveredH = oldH - accumulatedRecoilH;
-                yaw -= recoveredH;
-                if (Mathf.Abs(accumulatedRecoilH) < 0.001f) accumulatedRecoilH = 0f;
+                // 其他武器：停止射击后不恢复，准星保持在最后上抬位置
+                FPLogger.Log($"[UpdateRecoilRecovery] {category} recovery disabled - retaining current aim point");
+                // 不做任何处理，accumulatedRecoilV/H 保持不变，准星位置不变
             }
         }
+
+        /// <summary>
+        /// 狙击枪：线性回弹（完全回零）
+        /// </summary>
+        private void SniperRecovery()
+        {
+            if (sniperRecoveryStartTime < 0f)
+            {
+                sniperRecoveryStartTime = Time.unscaledTime;
+                sniperInitialV = accumulatedRecoilV;
+                sniperInitialH = accumulatedRecoilH;
+                FPLogger.Log($"[SniperRecovery] started at {sniperRecoveryStartTime}, initial V={sniperInitialV:F3}, H={sniperInitialH:F3}");
+            }
+
+            float elapsed = Time.unscaledTime - sniperRecoveryStartTime;
+            float t = Mathf.Clamp01(elapsed / sniperRecoveryDuration);
+            float targetV = Mathf.Lerp(sniperInitialV, 0f, t);
+            float targetH = Mathf.Lerp(sniperInitialH, 0f, t);
+
+            float deltaV = accumulatedRecoilV - targetV;
+            float deltaH = accumulatedRecoilH - targetH;
+
+            accumulatedRecoilV = targetV;
+            accumulatedRecoilH = targetH;
+            pitch += deltaV;
+            yaw -= deltaH;
+
+            FPLogger.Log($"[SniperRecovery] t={t:F3}, targetV={targetV:F3}, targetH={targetH:F3}, deltaV={deltaV:F3}, deltaH={deltaH:F3}");
+
+            if (t >= 1f)
+            {
+                accumulatedRecoilV = 0f;
+                accumulatedRecoilH = 0f;
+                sniperRecoveryStartTime = -1f;
+                FPLogger.Log("[SniperRecovery] completed");
+            }
+        }
+
         #endregion
     }
 }
