@@ -131,6 +131,7 @@ namespace FirstPersonCamera
             {
                 try { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; } catch { }
             }
+            SubscribeDeathEvent();
         }
 
         private void OnDestroy()
@@ -174,6 +175,7 @@ namespace FirstPersonCamera
                 }
             }
             catch { }
+            UnsubscribeDeathEvent();
         }
         #endregion
 

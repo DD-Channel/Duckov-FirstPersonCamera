@@ -20,8 +20,7 @@ namespace FirstPersonCamera.Patches
             Camera mainCam = controller.MainCamera;
             if (mainCam == null) return;
 
-            // 判断是否为霰弹枪（ShotCount > 1）
-            if (__instance.ShotCount > 1)
+            if (__instance.ShotCount > 1) // 霰弹枪
             {
                 // 获取枪械的原始 ShotAngle（腰射时的角度）
                 float baseAngle = __instance.ShotAngle;
@@ -44,9 +43,9 @@ namespace FirstPersonCamera.Patches
 
                 _shootDirection = dir.normalized;
             }
-            else
+            else // 非霰弹枪
             {
-                // 其他枪：无散布，直接指向屏幕中心
+                // 强制指向屏幕中心
                 _shootDirection = mainCam.transform.forward;
             }
         }

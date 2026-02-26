@@ -133,8 +133,3 @@ namespace FirstPersonCamera
         #endregion
     }
 }
-
-
-
-
-
