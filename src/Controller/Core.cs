@@ -96,6 +96,7 @@ namespace FirstPersonCamera
         #region 公共属性/方法（供补丁访问）
         public Camera MainCamera => mainCamera;
         public ItemAgent_Gun GetCurrentGun() => mainCharacter?.GetGun();
+
         #endregion
 
         #region Unity生命周期方法

@@ -1,72 +1,98 @@
 using UnityEngine;
-using System.Collections.Generic;
-using FirstPersonCamera.Utilities;
 
 namespace FirstPersonCamera
 {
+    /// <summary>
+    /// 第一人称相机控制器 - 后坐力恢复系统模块
+    /// 负责处理后坐力的恢复逻辑，使用指数衰减实现平滑回弹
+    /// </summary>
     public partial class FirstPersonCameraController
     {
-        #region 后坐力恢复系统（SmoothDamp 版本 - 仅狙击枪回弹）
-
-        // ========== 各类武器恢复参数（仅狙击枪有效） ==========
-
-        // 狙击枪：完全回零，可配置平滑时间
-        private float sniperSmoothTime = 0.2f;          // 平滑时间（秒），值越大回弹越慢
-        private float sniperMinRemainingV = 0.2f;          // 保留的最小垂直后坐力（0为完全回零）
-        private float sniperMinRemainingH = 0f;
-        private float sniperSmoothVelV, sniperSmoothVelH; // 速度缓存（由 SmoothDamp 使用）
-
-        // 其他武器的参数保留但不会被使用（可留作未来扩展）
-        private float rifleSmoothVelV, rifleSmoothVelH;
-        private float smgSmoothVelV, smgSmoothVelH;
-        private float shotgunSmoothVelV, shotgunSmoothVelH;
-        private float marksmanSmoothVelV, marksmanSmoothVelH;
-        private float unknownSmoothVelV, unknownSmoothVelH;
-
-        // ========== 主恢复更新方法 ==========
+        #region 后坐力恢复系统
+        /// <summary>
+        /// 更新后坐力恢复
+        /// 后坐力回弹系统：现代FPS设计思路
+        /// - 连续射击时：后坐力累积，不恢复
+        /// - 停止射击时：松开鼠标后开始恢复，使用指数衰减
+        /// - 基于枪械属性：使用RecoilRecover和RecoilRecoverTime
+        /// </summary>
         private void UpdateRecoilRecovery()
         {
-            // 射击中不恢复
+            // 如果没有累积后坐力，直接返回
+            if (accumulatedRecoilV == 0f && accumulatedRecoilH == 0f) return;
+            
+            // 如果正在射击，不恢复后坐力（让后坐力累积）
+            // 注意：isShooting在Core.cs中定义，通过partial class共享
             if (isShooting) return;
-            if (currentRecoilGun == null) return;
-
-            WeaponCategory category = GetWeaponCategory(currentRecoilGun);
-            FPLogger.Log($"[UpdateRecoilRecovery] weapon category: {category}");
-
-            // 只有狙击枪进行回弹，其他武器均不恢复（准星保持最后上抬位置）
-            if (category == WeaponCategory.Sniper)
+            
+            // 获取枪械的恢复属性
+            float recoverRate = 8f; // 默认恢复速度（每秒恢复系数）
+            float recoverTime = 0.3f; // 默认恢复时间（秒）
+            
+            if (currentRecoilGun != null)
             {
-                FPLogger.Log("[UpdateRecoilRecovery] entering sniper recovery");
-                SniperRecovery();
+                try
+                {
+                    // 使用枪械的RecoilRecover属性（如果存在）
+                    float gunRecover = currentRecoilGun.RecoilRecover;
+                    if (gunRecover > 0f)
+                    {
+                        // RecoilRecover通常是一个速度值，转换为恢复系数
+                        recoverRate = gunRecover * 10f; // 调整系数以匹配实际游戏体验
+                    }
+                    
+                    // 使用枪械的RecoilRecoverTime属性
+                    float gunRecoverTime = currentRecoilGun.RecoilRecoverTime;
+                    if (gunRecoverTime > 0f)
+                    {
+                        recoverTime = gunRecoverTime;
+                        // 根据恢复时间调整恢复速度（约3倍时间常数）
+                        recoverRate = 3f / Mathf.Max(0.1f, recoverTime);
+                    }
+                }
+                catch
+                {
+                    // 获取枪械属性失败时使用默认值
+                }
             }
-            else
+            
+            // 计算恢复系数：使用指数衰减公式
+            // 公式：newValue = oldValue * exp(-rate * deltaTime)
+            // 这样恢复速度会随时间逐渐变慢，符合现代FPS游戏的手感
+            float recoverFactor = Mathf.Exp(-recoverRate * Time.unscaledDeltaTime);
+            
+            // 恢复垂直后坐力（向上回弹）
+            if (accumulatedRecoilV > 0.001f)
             {
-                //FPLogger.Log($"[UpdateRecoilRecovery] {category} recovery disabled - retaining current aim point");
-                // 不做任何处理，后坐力值保持不变，准星不回落
+                float oldV = accumulatedRecoilV;
+                accumulatedRecoilV *= recoverFactor; // 指数衰减
+                float recoveredV = oldV - accumulatedRecoilV;
+                pitch += recoveredV; // 恢复pitch（向上回弹）
+                pitch = Mathf.Clamp(pitch, -89f, 89f);
+                
+                // 清理微小值
+                if (accumulatedRecoilV < 0.001f)
+                {
+                    accumulatedRecoilV = 0f;
+                }
+            }
+            
+            // 恢复水平后坐力（向中心回弹）
+            if (Mathf.Abs(accumulatedRecoilH) > 0.001f)
+            {
+                float oldH = accumulatedRecoilH;
+                accumulatedRecoilH *= recoverFactor; // 指数衰减
+                float recoveredH = oldH - accumulatedRecoilH;
+                yaw -= recoveredH; // 恢复yaw（向中心回弹）
+                
+                // 清理微小值
+                if (Mathf.Abs(accumulatedRecoilH) < 0.001f)
+                {
+                    accumulatedRecoilH = 0f;
+                }
             }
         }
-
-        // ========== 狙击枪恢复实现（使用 SmoothDamp） ==========
-        private void SniperRecovery()
-        {
-            // 垂直平滑逼近 sniperMinRemainingV
-            float targetV = Mathf.Max(sniperMinRemainingV, 0f);
-            float newV = Mathf.SmoothDamp(accumulatedRecoilV, targetV, ref sniperSmoothVelV, sniperSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
-            float deltaV = accumulatedRecoilV - newV;
-            accumulatedRecoilV = newV;
-            pitch += deltaV;
-
-            // 水平平滑逼近 sniperMinRemainingH（保留符号）
-            float targetH = sniperMinRemainingH * Mathf.Sign(accumulatedRecoilH);
-            float newH = Mathf.SmoothDamp(accumulatedRecoilH, targetH, ref sniperSmoothVelH, sniperSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
-            float deltaH = accumulatedRecoilH - newH;
-            accumulatedRecoilH = newH;
-            yaw -= deltaH;
-
-            // 可选日志
-            // FPLogger.Log($"[SniperRecovery] newV={newV:F3}, newH={newH:F3}, deltaV={deltaV:F3}, deltaH={deltaH:F3}");
-        }
-
         #endregion
     }
 }
+

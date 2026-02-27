@@ -434,9 +434,7 @@ namespace FirstPersonCamera
                     if (currentAdsSpeed <= 0f) currentAdsSpeed = DEFAULT_ADS_SPEED * ADS_SPEED_MULTIPLIER;
                 }
                 catch { currentAdsSpeed = DEFAULT_ADS_SPEED * ADS_SPEED_MULTIPLIER; }
-                FPLogger.Log("[UpdateAdsWeaponPlacement] about to call UpdateScopeFOV");
                 UpdateScopeFOV(gun);
-                FPLogger.Log("[UpdateAdsWeaponPlacement] back from UpdateScopeFOV");
             }
             else if (adsReleaseTimer > 0f)
             {
@@ -496,7 +494,7 @@ namespace FirstPersonCamera
                 adsCachedOrig = true;
             }
 
-            // 检测模式切换键【=】（适配新旧输入系统）
+            // 检测模式切换键【-】（适配新旧输入系统）
             try
             {
                 if (useNewInputSystem)
@@ -583,6 +581,8 @@ namespace FirstPersonCamera
             if (parentTf != null)
             {
                 Vector3 targetLocalPos = parentTf.InverseTransformPoint(targetWorldPos);
+                // ===== 将前后抖动位移合并到目标位置（局部Z轴） =====
+                targetLocalPos.z += gunShakeForward;
                 Quaternion targetLocalRot = Quaternion.Inverse(parentTf.rotation) * targetWorldRot;
                 
                 if (adsIsSmoothingToTarget && adsWeaponUseDirectSet)
@@ -613,30 +613,36 @@ namespace FirstPersonCamera
             }
             else
             {
+                // 无父节点时，直接使用世界坐标（但统一用 localPosition）
+                Vector3 targetLocalPos = targetWorldPos;
+                // ===== 将前后抖动位移合并到目标位置（假定世界Z轴与局部Z轴一致） =====
+                targetLocalPos.z += gunShakeForward;
+                Quaternion targetLocalRot = targetWorldRot;
+
                 if (adsIsSmoothingToTarget && adsWeaponUseDirectSet)
                 {
                     float t = 1f - Mathf.Exp(-currentAdsSpeed * Time.unscaledDeltaTime);
-                    gunTf.position = Vector3.Lerp(gunTf.position, targetWorldPos, t);
-                    gunTf.rotation = Quaternion.Slerp(gunTf.rotation, targetWorldRot, t);
+                    gunTf.localPosition = Vector3.Lerp(gunTf.localPosition, targetLocalPos, t);
+                    gunTf.localRotation = Quaternion.Slerp(gunTf.localRotation, targetLocalRot, t);
                     
-                    if (Vector3.Distance(gunTf.position, targetWorldPos) < ADS_SMOOTH_THRESHOLD &&
-                        Quaternion.Angle(gunTf.rotation, targetWorldRot) < ADS_ROTATION_THRESHOLD)
+                    if (Vector3.Distance(gunTf.localPosition, targetLocalPos) < ADS_SMOOTH_THRESHOLD &&
+                        Quaternion.Angle(gunTf.localRotation, targetLocalRot) < ADS_ROTATION_THRESHOLD)
                     {
                         adsIsSmoothingToTarget = false;
-                        gunTf.position = targetWorldPos;
-                        gunTf.rotation = targetWorldRot;
+                        gunTf.localPosition = targetLocalPos;
+                        gunTf.localRotation = targetLocalRot;
                     }
                 }
                 else if (adsWeaponUseDirectSet)
                 {
-                    gunTf.position = targetWorldPos;
-                    gunTf.rotation = targetWorldRot;
+                    gunTf.localPosition = targetLocalPos;
+                    gunTf.localRotation = targetLocalRot;
                 }
                 else
                 {
                     float t = 1f - Mathf.Exp(-adsWeaponLerpSpeed * Time.unscaledDeltaTime);
-                    gunTf.position = Vector3.Lerp(gunTf.position, targetWorldPos, t);
-                    gunTf.rotation = Quaternion.Slerp(gunTf.rotation, targetWorldRot, t);
+                    gunTf.localPosition = Vector3.Lerp(gunTf.localPosition, targetLocalPos, t);
+                    gunTf.localRotation = Quaternion.Slerp(gunTf.localRotation, targetLocalRot, t);
                 }
             }
         }
