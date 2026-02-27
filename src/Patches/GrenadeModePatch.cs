@@ -16,11 +16,11 @@ namespace FirstPersonCamera
 
         // 力度乘数（整体缩放）
         public float grenadeFarPowerMultiplier = 0.9f;
-        public float grenadeNearPowerMultiplier = 0.5f;
+        public float grenadeNearPowerMultiplier = 0.9f;
 
         // 垂直速度独立乘数（1.0 = 保持原物理）
         public float grenadeFarVerticalMultiplier = 1.1f;
-        public float grenadeNearVerticalMultiplier = 0.7f;
+        public float grenadeNearVerticalMultiplier = 1.7f;
 
         // 手雷物品 TypeID 集合（所有手雷，请根据实际游戏补充）
         private static readonly HashSet<int> GRENADE_TYPE_IDS = new HashSet<int>
@@ -53,7 +53,7 @@ namespace FirstPersonCamera
                     grenadeFarMode = !grenadeFarMode;
                     lastGrenadeModeSwitchTime = Time.unscaledTime;
                     ShowGrenadeModeMessage();
-                    FPLogger.Log($"[Grenade] 切换模式: {(grenadeFarMode ? "远投" : "近投")}");
+                    FPLogger.Log($"[Grenade] 切换模式: {(grenadeFarMode ? "低抛" : "高抛")}");
                 }
             }
         }
@@ -63,7 +63,7 @@ namespace FirstPersonCamera
         /// </summary>
         private void ShowGrenadeModeMessage()
         {
-            string mode = grenadeFarMode ? "远投" : "近投";
+            string mode = grenadeFarMode ? "低抛" : "高抛";
             string msg = $"<color=yellow>{mode}模式</color>";
             ShowDialogueBubble(msg);
             FPLogger.Log($"[Grenade] 显示模式: {mode}");
