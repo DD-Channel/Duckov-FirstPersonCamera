@@ -2,7 +2,6 @@ using HarmonyLib;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Reflection;
-using FirstPersonCamera;
 
 namespace FirstPersonCamera
 {
@@ -51,11 +50,11 @@ namespace FirstPersonCamera
             // 检查是否在瞄准状态
             bool isAiming = IsAiming(__instance);
 
-            if (isAiming)
-            {
-                // 消除子弹散布，使瞄准射击更加精确
-                ZeroOutScatter(__instance);
-            }
+            // if (isAiming)
+            // {
+            //     // 消除子弹散布，使瞄准射击更加精确
+            //     ZeroOutScatter(__instance);
+            // }
         }
         #endregion
 
