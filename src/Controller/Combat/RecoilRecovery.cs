@@ -26,8 +26,8 @@ namespace FirstPersonCamera
             if (isShooting) return;
             
             // 获取枪械的恢复属性
-            float recoverRate = 8f; // 默认恢复速度（每秒恢复系数）
-            float recoverTime = 0.3f; // 默认恢复时间（秒）
+            float recoverRate = 4f; // 默认恢复速度（每秒恢复系数）
+            float recoverTime = 0.5f; // 默认恢复时间（秒）
             
             if (currentRecoilGun != null)
             {
@@ -38,7 +38,7 @@ namespace FirstPersonCamera
                     if (gunRecover > 0f)
                     {
                         // RecoilRecover通常是一个速度值，转换为恢复系数
-                        recoverRate = gunRecover * 10f; // 调整系数以匹配实际游戏体验
+                        recoverRate = gunRecover * 6f; // 调整系数以匹配实际游戏体验
                     }
                     
                     // 使用枪械的RecoilRecoverTime属性
@@ -47,7 +47,7 @@ namespace FirstPersonCamera
                     {
                         recoverTime = gunRecoverTime;
                         // 根据恢复时间调整恢复速度（约3倍时间常数）
-                        recoverRate = 3f / Mathf.Max(0.1f, recoverTime);
+                        recoverRate = 1f / Mathf.Max(0.1f, recoverTime);
                     }
                 }
                 catch
