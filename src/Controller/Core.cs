@@ -96,7 +96,6 @@ namespace FirstPersonCamera
         #region 公共属性/方法（供补丁访问）
         public Camera MainCamera => mainCamera;
         public ItemAgent_Gun GetCurrentGun() => mainCharacter?.GetGun();
-
         #endregion
 
         #region Unity生命周期方法
@@ -133,7 +132,6 @@ namespace FirstPersonCamera
                 try { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; } catch { }
             }
             SubscribeDeathEvent();
-            
         }
 
         private void OnDestroy()
@@ -305,7 +303,7 @@ namespace FirstPersonCamera
                     HandleMouseReleaseRecoilReset();
                 }
 
-                // 光标管理
+                // 光标管理：仅当UI阻挡状态变化时重新锁定，不响应左键点击
                 if (uiBlocking)
                 {
                     if (Cursor.lockState != CursorLockMode.None) Cursor.lockState = CursorLockMode.None;
@@ -313,12 +311,22 @@ namespace FirstPersonCamera
                 }
                 else
                 {
-                    if (wasUIBlocking && Cursor.lockState != CursorLockMode.Locked)
-                    { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; suppressNextMouseDelta = true; }
+                    // 如果刚退出UI阻挡，锁定鼠标并抑制一帧增量
+                    if (wasUIBlocking)
+                    {
+                        if (Cursor.lockState != CursorLockMode.Locked)
+                        {
+                            Cursor.lockState = CursorLockMode.Locked;
+                            Cursor.visible = false;
+                            suppressNextMouseDelta = true;
+                        }
+                    }
+                    // 不再响应左键点击重新锁定鼠标，避免每次点击都触发抑制
                     else if (Input.GetKeyDown(KeyCode.Escape) && Cursor.lockState == CursorLockMode.Locked)
-                    { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
-                    else if (Input.GetMouseButtonDown(0) && Cursor.lockState != CursorLockMode.Locked)
-                    { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; suppressNextMouseDelta = true; }
+                    {
+                        Cursor.lockState = CursorLockMode.None;
+                        Cursor.visible = true;
+                    }
                 }
 
                 if (Time.unscaledTime < lightSweepEndTime)
