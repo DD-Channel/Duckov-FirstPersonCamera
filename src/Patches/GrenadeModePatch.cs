@@ -110,7 +110,7 @@ namespace FirstPersonCamera.Patches
     }
 
     /// <summary>
-    /// 修改手雷轨迹预览线，使其匹配当前投掷模式
+    /// 修改手雷轨迹预览线，使其匹配当前投掷模式并跟随相机方向（偏头时倾斜）
     /// </summary>
     [HarmonyPatch(typeof(SkillProjectileLineHUD))]
     [HarmonyPatch("UpdateLine")]
@@ -122,9 +122,22 @@ namespace FirstPersonCamera.Patches
             if (controller == null) return;
             if (!controller.IsHoldingGrenade()) return;
 
+            // 原有的垂直速度调整
             float verticalMultiplier = controller.grenadeFarMode ? controller.grenadeFarVerticalMultiplier : controller.grenadeNearVerticalMultiplier;
             verticleSpeed *= verticalMultiplier;
-            FPLogger.Log($"[Grenade] 预览线: 垂直速度乘数={verticalMultiplier}");
+
+            // 新增：让预览线方向跟随相机（偏头时倾斜）
+            if (controller.IsFirstPersonMode)
+            {
+                Camera cam = controller.MainCamera;
+                if (cam != null)
+                {
+                    // 计算从相机位置到原目标点的距离，保持距离不变
+                    float distance = Vector3.Distance(cam.transform.position, target);
+                    // 将目标点设置为相机前方相同距离的点，使预览线随相机旋转
+                    target = cam.transform.position + cam.transform.forward * distance;
+                }
+            }
         }
     }
 

@@ -30,6 +30,8 @@ namespace FirstPersonCamera.StandaloneUI.Tabs
             
             // 统一检视键（枪械和近战共用）
             StandaloneUICreator.CreateKeybindRow(parent, "检视", OptionsUIConstants.InspectKeyCodeKey, KeyCode.H, keybindButtons);
+            // peek模式切换
+            StandaloneUICreator.CreateToggleRow(parent, "偏头切换模式", OptionsUIConstants.PeekModeKey, false, toggles);
         }
     }
 }

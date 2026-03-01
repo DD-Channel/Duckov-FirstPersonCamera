@@ -11,7 +11,7 @@ namespace FirstPersonCamera
         /// 模组版本号
         /// 更新版本时只需修改此处
         /// </summary>
-        public const string ModVersion = "1.2.0";
+        public const string ModVersion = "1.2.10";
         #endregion
 
         #region 灵敏度选项键
@@ -568,6 +568,22 @@ namespace FirstPersonCamera
         /// 整数数值格式
         /// </summary>
         public const string ValueFormatInteger = "0";
+        #endregion
+
+        #region
+        // peek模式：0=长按，1=切换
+        public const string PeekModeKey = "FirstPersonCamera_PeekMode";
+        public const int PeekModeDefault = 0; // 默认长按
+        #endregion
+        #region 枪口火光
+        /// <summary>
+        /// 选项键：禁用枪口火光
+        /// </summary>
+        public const string DisableMuzzleFlashKey = "FirstPersonCamera_DisableMuzzleFlash";
+        /// <summary>
+        /// 禁用枪口火光默认值（0=不禁用，1=禁用）
+        /// </summary>
+        public const int DisableMuzzleFlashDefault = 0;
         #endregion
     }
 }
