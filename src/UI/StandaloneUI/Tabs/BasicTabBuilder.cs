@@ -36,10 +36,13 @@ namespace FirstPersonCamera.StandaloneUI.Tabs
             StandaloneUICreator.CreateToggleRow(parent, "禁用遮挡透视", OptionsUIConstants.DisableSeeThroughKey, false, toggles);
             StandaloneUICreator.CreateToggleRow(parent, "禁用瞄准虚化", OptionsUIConstants.DisableAimOcclusionFadeKey, false, toggles);
             StandaloneUICreator.CreateToggleRow(parent, "去除战争迷雾", OptionsUIConstants.DisableFogOfWarKey, false, toggles);
+            StandaloneUICreator.CreateToggleRow(parent, "第一人称显示声音纹路", OptionsUIConstants.ShowSoundVisualizationKey, false, toggles);
+            StandaloneUICreator.CreateToggleRow(parent, "禁用枪口火光", OptionsUIConstants.DisableMuzzleFlashKey, false, toggles);
             StandaloneUICreator.CreateDivider(parent);
 
             // 战斗设置（基础归类）
             StandaloneUICreator.CreateSectionTitle(parent, "⚔️ 战斗设置");
+            StandaloneUICreator.CreateToggleRow(parent, "瞄准时无散布", OptionsUIConstants.EnableSpreadKey, false, toggles);
             StandaloneUICreator.CreateToggleRow(parent, "启用后坐力", OptionsUIConstants.EnableRecoilKey, true, toggles);
             StandaloneUICreator.CreateSliderRow(parent, "后坐力强度", OptionsUIConstants.RecoilStrengthKey,
                 OptionsUIConstants.RecoilStrengthMin, OptionsUIConstants.RecoilStrengthMax, OptionsUIConstants.RecoilStrengthDefault, sliders);

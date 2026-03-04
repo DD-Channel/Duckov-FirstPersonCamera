@@ -119,7 +119,7 @@ namespace FirstPersonCamera
         /// <summary>
         /// 相机前向偏移默认值
         /// </summary>
-        public const float OffsetForwardDefault = 0.12f;
+        public const float OffsetForwardDefault = 0.0f;
         
         /// <summary>
         /// 相机右向偏移默认值
@@ -570,20 +570,30 @@ namespace FirstPersonCamera
         public const string ValueFormatInteger = "0";
         #endregion
 
-        #region
+        #region peek模式选项键
         // peek模式：0=长按，1=切换
         public const string PeekModeKey = "FirstPersonCamera_PeekMode";
         public const int PeekModeDefault = 0; // 默认长按
         #endregion
-        #region 枪口火光
+        #region 瞄准散布消除选项键
+        /// <summary>
+        /// 选项键：启用瞄准散布消除（开镜时无散布）
+        /// </summary>
+        public const string EnableSpreadKey = "FirstPersonCamera_EnableSpread";
+        #endregion
+        #region 声音纹路
+        /// <summary>
+        /// 选项键：第一人称下显示声音纹路
+        /// </summary>
+        public const string ShowSoundVisualizationKey = "FirstPersonCamera_ShowSoundVisualization";
+        /// <summary>
+        /// 默认值（0=不显示，1=显示）
+        /// </summary>
+        public const int ShowSoundVisualizationDefault =0;
         /// <summary>
         /// 选项键：禁用枪口火光
         /// </summary>
         public const string DisableMuzzleFlashKey = "FirstPersonCamera_DisableMuzzleFlash";
-        /// <summary>
-        /// 禁用枪口火光默认值（0=不禁用，1=禁用）
-        /// </summary>
-        public const int DisableMuzzleFlashDefault = 0;
         #endregion
     }
 }
