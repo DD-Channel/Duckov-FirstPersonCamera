@@ -181,6 +181,7 @@ namespace FirstPersonCamera
             {
                 HandleVisibilityOptionChange();
             }
+            
         }
 
         /// <summary>
@@ -320,6 +321,14 @@ namespace FirstPersonCamera
             cameraHeightOffset = OptionsHelper.LoadFloatClamped(OffsetHeightKey, DefaultOffsetHeight, OffsetMin, OffsetMax);
             cameraForwardOffset = OptionsHelper.LoadFloatClamped(OffsetForwardKey, DefaultOffsetForward, OffsetMin, OffsetMax);
             cameraRightOffset = OptionsHelper.LoadFloatClamped(OffsetRightKey, DefaultOffsetRight, OffsetMin, OffsetMax);
+
+            // 屏蔽 0.13 ~ 0.22 区间，强制设为 0.12（问题区间的下限之外）
+            if (cameraForwardOffset >= 0.13f && cameraForwardOffset <= 0.22f)
+            {
+                cameraForwardOffset = 0.12f;
+                // 保存修正后的值到配置文件，避免下次加载时又读回问题值
+                OptionsHelper.SaveFloat(OffsetForwardKey, cameraForwardOffset);
+            }
         }
 
         /// <summary>

@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using FirstPersonCamera.OptionsUI;
+using FirstPersonCamera.Utilities;
 
 namespace FirstPersonCamera.StandaloneUI.Tabs
 {
@@ -15,22 +16,13 @@ namespace FirstPersonCamera.StandaloneUI.Tabs
             Dictionary<string, TMP_Dropdown> dropdowns,
             Dictionary<string, Button> keybindButtons)
         {
-            // 键位设置
-            StandaloneUICreator.CreateSectionTitle(parent, "⌨️ 键位设置");
-
-            // 切换第一人称键
-            StandaloneUICreator.CreateKeybindRow(parent, "切换第一人称", "FirstPersonCamera_ToggleKeyCode", KeyCode.F5, keybindButtons);
-
-            // 偏头键（左/右）
-            StandaloneUICreator.CreateKeybindRow(parent, "左侧探头", "FirstPersonCamera_PeekLeftKeyCode", KeyCode.Q, keybindButtons);
-            StandaloneUICreator.CreateKeybindRow(parent, "右侧探头", "FirstPersonCamera_PeekRightKeyCode", KeyCode.E, keybindButtons);
-            
-            // 激光开关键
-            StandaloneUICreator.CreateKeybindRow(parent, "激光开关", OptionsUIConstants.LaserToggleKeyCodeKey, KeyCode.None, keybindButtons);
-            
-            // 统一检视键（枪械和近战共用）
-            StandaloneUICreator.CreateKeybindRow(parent, "检视", OptionsUIConstants.InspectKeyCodeKey, KeyCode.H, keybindButtons);
+            StandaloneUICreator.CreateSectionTitle(parent, "FPC_SettingsTabKeybinds");//按键设置
+            StandaloneUICreator.CreateKeybindRow(parent, "FPC_ToggleKey", "FirstPersonCamera_ToggleKeyCode", KeyCode.F5, keybindButtons);//切换第一人称
+            StandaloneUICreator.CreateToggleRow(parent, "FPC_PeekMode", OptionsUIConstants.PeekModeKey, false, toggles); //长按探头模式
+            StandaloneUICreator.CreateKeybindRow(parent, "FPC_PeekLeft", "FirstPersonCamera_PeekLeftKeyCode", KeyCode.Q, keybindButtons);//向左探头
+            StandaloneUICreator.CreateKeybindRow(parent, "FPC_PeekRight", "FirstPersonCamera_PeekRightKeyCode", KeyCode.E, keybindButtons); //向右探头
+            StandaloneUICreator.CreateKeybindRow(parent, "FPC_LaserToggle", OptionsUIConstants.LaserToggleKeyCodeKey, KeyCode.None, keybindButtons);//激光开关
+            StandaloneUICreator.CreateKeybindRow(parent, "FPC_Inspect", OptionsUIConstants.InspectKeyCodeKey, KeyCode.H, keybindButtons);//检视
         }
     }
 }
-

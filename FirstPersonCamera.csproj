@@ -36,5 +36,6 @@
         </Reference>
         <Reference Include="$(ManagedPath)\ECM2.dll" />
         <Reference Include="$(ManagedPath)\FOW.dll" />
+        <Reference Include="$(ManagedPath)\SodaLocalization.dll" />
   </ItemGroup> 
 </Project>

@@ -263,6 +263,9 @@ namespace FirstPersonCamera
 
             // 创建中心标记
             CreateCenterMarker();
+            
+            // 初始化标记模块（添加标记槽位并订阅事件）
+            InitializeMarkerModule();
         }
 
         /// <summary>
@@ -599,6 +602,9 @@ namespace FirstPersonCamera
 
             // 更新指南针位置
             UpdateCompassPosition();
+            
+            // 更新标记位置
+            LateUpdateMarkers();
         }
 
         /// <summary>
@@ -669,5 +675,6 @@ namespace FirstPersonCamera
             }
         }
         #endregion
+
     }
 }

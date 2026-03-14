@@ -11,7 +11,7 @@ namespace FirstPersonCamera
         /// 模组版本号
         /// 更新版本时只需修改此处
         /// </summary>
-        public const string ModVersion = "1.2.0";
+        public const string ModVersion = "1.3.1";
         #endregion
 
         #region 灵敏度选项键
@@ -119,7 +119,7 @@ namespace FirstPersonCamera
         /// <summary>
         /// 相机前向偏移默认值
         /// </summary>
-        public const float OffsetForwardDefault = 0.12f;
+        public const float OffsetForwardDefault = 0.0f;
         
         /// <summary>
         /// 相机右向偏移默认值
@@ -568,6 +568,51 @@ namespace FirstPersonCamera
         /// 整数数值格式
         /// </summary>
         public const string ValueFormatInteger = "0";
+        #endregion
+
+        #region peek模式选项键
+        // peek模式：0=长按，1=切换
+        public const string PeekModeKey = "FirstPersonCamera_PeekMode";
+        public const int PeekModeDefault = 0; // 默认长按
+        #endregion
+        #region 瞄准散布消除选项键
+        /// <summary>
+        /// 选项键：启用瞄准散布消除（开镜时无散布）
+        /// </summary>
+        public const string EnableSpreadKey = "FirstPersonCamera_EnableSpread";
+        #endregion
+        #region 声音纹路
+        /// <summary>
+        /// 选项键：第一人称下显示声音纹路
+        /// </summary>
+        public const string ShowSoundVisualizationKey = "FirstPersonCamera_ShowSoundVisualization";
+        /// <summary>
+        /// 默认值（0=不显示，1=显示）
+        /// </summary>
+        public const int ShowSoundVisualizationDefault =0;
+        /// <summary>
+        /// 选项键：禁用枪口火光
+        /// </summary>
+        public const string DisableMuzzleFlashKey = "FirstPersonCamera_DisableMuzzleFlash";
+        // 狙击枪增强开关
+        public const string SniperEnhanceEnabledKey = "FirstPersonCamera_SniperEnhanceEnabled";
+        // 射程倍率
+        public const string SniperDistanceMultiplierKey = "FirstPersonCamera_SniperDistanceMultiplier";
+        // 子弹速度倍率
+        public const string SniperBulletSpeedMultiplierKey = "FirstPersonCamera_SniperBulletSpeedMultiplier";
+        // 开镜时间倍率
+        public const string SniperADSTimeMultiplierKey = "FirstPersonCamera_SniperADSTimeMultiplier";
+
+        // 默认值
+        public const float SniperDistanceMultiplierDefault = 1.5f;
+        public const float SniperBulletSpeedMultiplierDefault = 1.3f;
+        public const float SniperADSTimeMultiplierDefault = 0.8f;
+
+        // 范围
+        public const float SniperMultiplierMin = 0.1f;
+        public const float SniperMultiplierMax = 3.0f;
+        public const float SniperADSTimeMultiplierMin = 0.01f;
+        public const float SniperADSTimeMultiplierMax = 1.0f;
         #endregion
     }
 }

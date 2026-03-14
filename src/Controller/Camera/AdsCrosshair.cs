@@ -27,7 +27,7 @@ namespace FirstPersonCamera
             { 568, "Center" },      
 
             // 8x 倍镜
-            { 569, "Center" },      
+            { 569, "Center" },
 
             // 特殊倍镜（智慧核心等）
             { 12028, "AimMarkerRotateParent" }, // 快速瞄具[智慧核心]
@@ -88,7 +88,7 @@ namespace FirstPersonCamera
         {
             if (Time.unscaledTime - lastRestoreLogTime > RestoreLogInterval)
             {
-                FPLogger.Log("[AdsCrosshair] RestoreAdsCrosshair called");
+                // FPLogger.Log("[AdsCrosshair] RestoreAdsCrosshair called");
                 lastRestoreLogTime = Time.unscaledTime;
             }
 

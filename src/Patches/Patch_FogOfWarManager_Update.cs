@@ -8,11 +8,13 @@ using UnityEngine;
 namespace FirstPersonCamera.Patches
 {
     /// <summary>
-    /// Harmony 补丁：动态干预 FogOfWarManager.Update，根据 Mod 选项和第一人称状态控制战争迷雾。
-    /// 修复：骑乘坐骑时迷雾跟随视角移动（位置和方向）。
+    /// Harmony 补丁：强制控制战争迷雾。
+    /// 开关开启时，设置 allVision = true 且半径极大值，确保全图可见。
+    /// 开关关闭时，恢复游戏规则控制 allVision，不干预半径（由游戏动态更新）。
     /// </summary>
     [HarmonyPatch(typeof(FogOfWarManager))]
     [HarmonyPatch("Update")]
+    [HarmonyPriority(600)] // 高优先级，确保在其他补丁后执行
     public static class Patch_FogOfWarManager_Update
     {
         private static FieldInfo _allVisionField;
@@ -37,19 +39,24 @@ namespace FirstPersonCamera.Patches
             bool isFirstPerson = FirstPersonCameraController.Instance != null &&
                                  FirstPersonCameraController.Instance.IsFirstPersonMode;
 
-            bool shouldEnable = isFirstPerson && disableFogOfWar;
-            bool currentAllVision = (bool)_allVisionField.GetValue(__instance);
-
-            if (shouldEnable)
+            bool targetAllVision;
+            if (isFirstPerson && disableFogOfWar)
             {
-                if (!currentAllVision)
-                    _allVisionField.SetValue(__instance, true);
+                targetAllVision = true;
             }
             else if (isFirstPerson)
             {
-                bool targetAllVision = !ShouldHaveFog(__instance);
-                if (currentAllVision != targetAllVision)
-                    _allVisionField.SetValue(__instance, targetAllVision);
+                targetAllVision = !ShouldHaveFog(__instance);
+            }
+            else
+            {
+                return;
+            }
+
+            bool currentAllVision = (bool)_allVisionField.GetValue(__instance);
+            if (currentAllVision != targetAllVision)
+            {
+                _allVisionField.SetValue(__instance, targetAllVision);
             }
         }
 
@@ -67,13 +74,6 @@ namespace FirstPersonCamera.Patches
 
             if (isFirstPerson)
             {
-                // 选项关闭时强制设置较小的视野范围（让迷雾快速收缩）
-                if (!disableFogOfWar)
-                {
-                    mainVis.UnobscuredRadius = 1.5f;
-                    mainVis.ViewRadius = 30f;
-                }
-
                 // 强制将迷雾揭示者的位置和旋转设置为当前相机，确保视野跟随视角
                 if (GameCamera.Instance != null && GameCamera.Instance.renderCamera != null)
                 {
@@ -81,6 +81,18 @@ namespace FirstPersonCamera.Patches
                     mainVis.transform.position = camTransform.position;
                     mainVis.transform.rotation = camTransform.rotation;
                 }
+
+                if (disableFogOfWar)
+                {
+                    // 开关开启：强制半径极大值
+                    const float hugeRadius = 10000f;
+                    if (Mathf.Abs(mainVis.UnobscuredRadius - hugeRadius) > 0.1f)
+                    {
+                        mainVis.UnobscuredRadius = hugeRadius;
+                        mainVis.ViewRadius = hugeRadius;
+                    }
+                }
+                // 开关关闭时不干预半径，由游戏自身动态更新
             }
         }
 

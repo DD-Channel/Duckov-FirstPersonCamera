@@ -8,6 +8,7 @@ using Dialogues;
 using FirstPersonCamera.OptionsUI;
 using FirstPersonCamera.Utilities;
 using FirstPersonCamera.Compatibility;
+using Duckov.Sounds; // 可选，用于缓存类型
 
 namespace FirstPersonCamera
 {
@@ -20,6 +21,7 @@ namespace FirstPersonCamera
     {
         #region 序列化字段和公共属性
         [Header("Camera Settings")]
+        
         [SerializeField] private float mouseSensitivityX = 0.10f;
         [SerializeField] private float mouseSensitivityY = 0.10f;
 
@@ -42,6 +44,7 @@ namespace FirstPersonCamera
 
         [Header("Controls")]
         public KeyCode toggleKey = KeyCode.F5;
+        public bool EnableCameraUpdate { get; set; } = true;
 
         /// <summary>
         /// 单例实例（用于全局访问）
@@ -91,6 +94,9 @@ namespace FirstPersonCamera
         private const float lightSweepDuration = 1.0f;
         private int obstructionCheckFrameCounter = 0;
         private const int obstructionCheckInterval = 10;
+
+        // 可选：缓存声音纹路组件，用于场景加载时重置
+        private SoundVisualization cachedSoundVisualization;
         #endregion
 
         #region 公共属性/方法（供补丁访问）
@@ -132,6 +138,9 @@ namespace FirstPersonCamera
                 try { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; } catch { }
             }
             SubscribeDeathEvent();
+
+            // 订阅场景加载事件，以便在场景切换后重置缓存
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
         private void OnDestroy()
@@ -176,6 +185,10 @@ namespace FirstPersonCamera
             }
             catch { }
             UnsubscribeDeathEvent();
+
+            // 取消订阅场景加载事件
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+            CleanupMarkerModule();
         }
         #endregion
 
@@ -506,6 +519,8 @@ namespace FirstPersonCamera
             if (alignAimRoutine == null) alignAimRoutine = StartCoroutine(AlignAimRoutine());
             if (deferredInitRoutine == null) deferredInitRoutine = StartCoroutine(DeferredFirstPersonInit());
             try { SetupJumpInput(); } catch { }
+
+            // 已移除声音纹路激活调用
         }
 
         private void DisableFirstPerson()
@@ -550,6 +565,8 @@ namespace FirstPersonCamera
 
             try { RestoreJumpInput(); } catch { }
             RestoreAdsCrosshair();
+
+            // 已移除声音纹路恢复调用
         }
         #endregion
 
@@ -747,6 +764,16 @@ namespace FirstPersonCamera
                     }
                 }
             }
+        }
+        #endregion
+
+        #region 声音纹路缓存管理（仅用于场景切换重置）
+        /// <summary>
+        /// 场景加载事件处理
+        /// </summary>
+        private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            cachedSoundVisualization = null; // 使缓存失效，下一帧补丁会重新查找
         }
         #endregion
     }

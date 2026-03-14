@@ -2,6 +2,7 @@ using HarmonyLib;
 using System.Reflection;
 using FirstPersonCamera;
 using FirstPersonCamera.Utilities;
+using FirstPersonCamera.UI; // 新增：用于 FPLocalization
 
 namespace FirstPersonCamera.Patches
 {
@@ -24,9 +25,8 @@ namespace FirstPersonCamera.Patches
             var controller = FirstPersonCameraController.Instance;
             if (controller != null && controller.IsFirstPersonMode)
             {
-                // 显示双语言红色大字体提示（中文在上，英文在下）
-                string message = "<color=red><size=130%>当前视角下无法使用，请先按F5切换视角后重新交互\nCannot use in this view, please press F5 to switch view and try again</size></color>";
-                ShowBubbleMessage(controller, message);
+                // 显示本地化提示（红色大字体）
+                ShowBubbleMessage(controller);
                 // 阻止原方法执行，不打开建造界面
                 return false;
             }
@@ -36,25 +36,27 @@ namespace FirstPersonCamera.Patches
 
         /// <summary>
         /// 通过反射调用 FirstPersonCameraController 的私有方法 ShowDialogueBubble
+        /// 使用本地化字符串
         /// </summary>
-        private static void ShowBubbleMessage(FirstPersonCameraController controller, string message)
+        private static void ShowBubbleMessage(FirstPersonCameraController controller)
         {
             try
             {
+                string localizedMsg = $"<color=red><size=130%>{FPLocalization.Get("FPC_BuilderViewWarning")}</size></color>";
                 MethodInfo method = typeof(FirstPersonCameraController).GetMethod("ShowDialogueBubble",
                     BindingFlags.NonPublic | BindingFlags.Instance);
                 if (method != null)
                 {
-                    method.Invoke(controller, new object[] { message });
+                    method.Invoke(controller, new object[] { localizedMsg });
                 }
                 else
                 {
-                    FPLogger.LogWarning("[BuilderViewInvoker] 未找到 ShowDialogueBubble 方法，请检查 ScavDialogueBubbleUI.cs 是否包含该方法");
+                    // FPLogger.LogWarning("[BuilderViewInvoker] 未找到 ShowDialogueBubble 方法");
                 }
             }
             catch (System.Exception ex)
             {
-                FPLogger.LogError($"[BuilderViewInvoker] 显示提示失败: {ex.Message}");
+                // FPLogger.LogError($"[BuilderViewInvoker] 显示提示失败: {ex.Message}");
             }
         }
     }
@@ -81,7 +83,7 @@ namespace FirstPersonCamera.Patches
             if (controller.IsFirstPersonMode)
             {
                 controller.SetFirstPerson(false);
-                FPLogger.Log($"[{typeName}] StartInteract 触发，立即退出第一人称 - {__instance.name}");
+                // FPLogger.Log($"[{typeName}] StartInteract 触发，立即退出第一人称 - {__instance.name}");
             }
         }
     }
@@ -103,7 +105,7 @@ namespace FirstPersonCamera.Patches
             if (!controller.IsFirstPersonMode)
             {
                 controller.SetFirstPerson(true);
-                FPLogger.Log($"[{typeName}] StopInteract 触发，恢复第一人称 - {__instance.name}");
+                // FPLogger.Log($"[{typeName}] StopInteract 触发，恢复第一人称 - {__instance.name}");
             }
         }
     }
@@ -125,7 +127,7 @@ namespace FirstPersonCamera.Patches
             if (!controller.IsFirstPersonMode)
             {
                 controller.SetFirstPerson(true);
-                FPLogger.Log($"[{typeName}] InternalStopInteract 触发，恢复第一人称 - {__instance.name}");
+                // FPLogger.Log($"[{typeName}] InternalStopInteract 触发，恢复第一人称 - {__instance.name}");
             }
         }
     }

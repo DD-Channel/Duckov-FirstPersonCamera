@@ -84,7 +84,7 @@ namespace FirstPersonCamera
 
             if (!useNewInputSystem)
             {
-                FPLogger.Log("使用旧输入系统，跳跃将通过Update()中的Input.GetKeyDown检测");
+                // FPLogger.Log("使用旧输入系统，跳跃将通过Update()中的Input.GetKeyDown检测");
                 StartJumpECM2();
                 return;
             }
@@ -94,14 +94,14 @@ namespace FirstPersonCamera
                 var playerInput = GameManager.MainPlayerInput;
                 if (playerInput == null || playerInput.actions == null)
                 {
-                    FPLogger.LogWarning("无法设置跳跃输入: playerInput或actions为null，将使用旧输入系统兜底");
+                    // FPLogger.LogWarning("无法设置跳跃输入: playerInput或actions为null，将使用旧输入系统兜底");
                 }
                 else
                 {
                     var dashAction = playerInput.actions.FindAction("Dash", false);
                     if (dashAction == null)
                     {
-                        FPLogger.LogWarning("无法设置跳跃输入: Dash动作未找到，将使用旧输入系统兜底");
+                        // FPLogger.LogWarning("无法设置跳跃输入: Dash动作未找到，将使用旧输入系统兜底");
                     }
                     else
                     {
@@ -121,7 +121,7 @@ namespace FirstPersonCamera
                                     dashBindingIndex = i;
                                     dashAction.ApplyBindingOverride(i, "<Keyboard>/leftCtrl");
                                     dashBindingModified = true;
-                                    FPLogger.Log("Dash绑定已修改为Ctrl键");
+                                    // FPLogger.Log("Dash绑定已修改为Ctrl键");
                                     break;
                                 }
                             }
@@ -131,7 +131,7 @@ namespace FirstPersonCamera
                                 dashBindingIndex = 0;
                                 dashAction.ApplyBindingOverride(0, "<Keyboard>/leftCtrl");
                                 dashBindingModified = true;
-                                FPLogger.Log("Dash绑定已修改为Ctrl键（使用第一个绑定）");
+                                // FPLogger.Log("Dash绑定已修改为Ctrl键（使用第一个绑定）");
                             }
                         }
                     }
@@ -145,11 +145,11 @@ namespace FirstPersonCamera
                         jumpAction.AddBinding("<Keyboard>/space");
                         jumpAction.started += OnJumpInput;
                         jumpAction.Enable();
-                        FPLogger.Log("跳跃InputAction已创建并启用（新输入系统）");
+                        // FPLogger.Log("跳跃InputAction已创建并启用（新输入系统）");
                     }
                     catch (System.Exception ex2)
                     {
-                        FPLogger.LogWarning("创建jumpAction失败: {0}，将使用旧输入系统兜底", ex2.Message);
+                        // FPLogger.LogWarning("创建jumpAction失败: {0}，将使用旧输入系统兜底", ex2.Message);
                         jumpAction = null;
                     }
                 }
@@ -158,7 +158,7 @@ namespace FirstPersonCamera
             }
             catch (System.Exception ex)
             {
-                FPLogger.LogException(ex, "设置跳跃输入失败，将使用旧输入系统兜底");
+                // FPLogger.LogException(ex, "设置跳跃输入失败，将使用旧输入系统兜底");
                 if (jumpAction != null)
                 {
                     try
@@ -205,7 +205,7 @@ namespace FirstPersonCamera
             }
             catch (System.Exception ex)
             {
-                FPLogger.LogException(ex, "恢复跳跃输入失败");
+                // FPLogger.LogException(ex, "恢复跳跃输入失败");
             }
 
             StopJumpECM2();
@@ -217,7 +217,7 @@ namespace FirstPersonCamera
         {
             if (jumpECM2Coroutine != null) return;
             jumpECM2Coroutine = StartCoroutine(JumpECM2Coroutine());
-            FPLogger.Log("ECM2 跳跃协程已启动");
+            // FPLogger.Log("ECM2 跳跃协程已启动");
         }
 
         private void StopJumpECM2()
@@ -238,7 +238,7 @@ namespace FirstPersonCamera
                     mainCharacter.SetForceMoveVelocity(Vector3.zero);
                 }
                 speedReducedForAir = false;
-                FPLogger.Log("ECM2 跳跃协程已停止");
+                // FPLogger.Log("ECM2 跳跃协程已停止");
             }
         }
 
@@ -259,7 +259,7 @@ namespace FirstPersonCamera
                 runningPropCache = type.GetProperty(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 if (runningPropCache != null)
                 {
-                    FPLogger.Log($"[翻滚] 缓存Running属性: {name}");
+                    // FPLogger.Log($"[翻滚] 缓存Running属性: {name}");
                     break;
                 }
             }
@@ -270,7 +270,7 @@ namespace FirstPersonCamera
                 stopMethodCache = type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 if (stopMethodCache != null)
                 {
-                    FPLogger.Log($"[翻滚] 缓存停止方法: {name}");
+                    // FPLogger.Log($"[翻滚] 缓存停止方法: {name}");
                     break;
                 }
             }
@@ -297,7 +297,7 @@ namespace FirstPersonCamera
             }
             catch (System.Exception ex)
             {
-                FPLogger.LogWarning($"禁用翻滚组件失败: {ex.Message}");
+                // FPLogger.LogWarning($"禁用翻滚组件失败: {ex.Message}");
             }
 
             if (!dashInputDisabledForJump)
@@ -313,7 +313,7 @@ namespace FirstPersonCamera
                 {
                     dashInputAction.Disable();
                     dashInputDisabledForJump = true;
-                    FPLogger.Log("[翻滚] 已禁用翻滚输入");
+                    // FPLogger.Log("[翻滚] 已禁用翻滚输入");
                 }
             }
         }
@@ -332,7 +332,7 @@ namespace FirstPersonCamera
                 }
                 catch (System.Exception ex)
                 {
-                    FPLogger.LogWarning($"恢复翻滚组件失败: {ex.Message}");
+                    // FPLogger.LogWarning($"恢复翻滚组件失败: {ex.Message}");
                 }
             }
 
@@ -342,7 +342,7 @@ namespace FirstPersonCamera
                 {
                     dashInputAction.Enable();
                     dashInputDisabledForJump = false;
-                    FPLogger.Log("[翻滚] 已恢复翻滚输入");
+                    // FPLogger.Log("[翻滚] 已恢复翻滚输入");
                 }
             }
         }
@@ -373,7 +373,7 @@ namespace FirstPersonCamera
                 {
                     try
                     {
-                        petAIType = assembly.GetType("PetAI");
+                        // petAIType = assembly.GetType("PetAI");
                         if (petAIType != null) break;
                     }
                     catch { }
@@ -381,7 +381,7 @@ namespace FirstPersonCamera
 
                 if (petAIType == null)
                 {
-                    FPLogger.LogWarning("无法找到PetAI类型，跳过禁用狗传送");
+                    // FPLogger.LogWarning("无法找到PetAI类型，跳过禁用狗传送");
                     return;
                 }
 
@@ -446,11 +446,11 @@ namespace FirstPersonCamera
                                 petAIEventInfos.Add(info);
 
                                 foundCount++;
-                                FPLogger.Log("已禁用PetAI传送: PetAI={0}, Master={1}", petAI, masterCharacter);
+                                // FPLogger.Log("已禁用PetAI传送: PetAI={0}, Master={1}", petAI, masterCharacter);
                             }
                             catch (System.Exception ex)
                             {
-                                FPLogger.LogWarning("移除PetAI事件失败: {0}", ex.Message);
+                                // FPLogger.LogWarning("移除PetAI事件失败: {0}", ex.Message);
                             }
                         }
                         else
@@ -479,29 +479,29 @@ namespace FirstPersonCamera
                                     petAIEventInfos.Add(info);
 
                                     foundCount++;
-                                    FPLogger.Log("已禁用PetAI传送（通过字段）: PetAI={0}, Master={1}", petAI, masterCharacter);
+                                    // FPLogger.Log("已禁用PetAI传送（通过字段）: PetAI={0}, Master={1}", petAI, masterCharacter);
                                 }
                             }
                             catch (System.Exception ex)
                             {
-                                FPLogger.LogWarning("操作PetAI事件字段失败: {0}", ex.Message);
+                                // FPLogger.LogWarning("操作PetAI事件字段失败: {0}", ex.Message);
                             }
                         }
                     }
                     catch (System.Exception ex)
                     {
-                        FPLogger.LogWarning("处理PetAI时出错: {0}", ex.Message);
+                        // FPLogger.LogWarning("处理PetAI时出错: {0}", ex.Message);
                     }
                 }
 
-                if (foundCount > 0)
-                    FPLogger.Log("已禁用 {0} 个PetAI的传送功能", foundCount);
-                else
-                    FPLogger.Log("未找到需要禁用的PetAI组件");
+                // if (foundCount > 0)
+                //     FPLogger.Log("已禁用 {0} 个PetAI的传送功能", foundCount);
+                // else
+                //     FPLogger.Log("未找到需要禁用的PetAI组件");
             }
             catch (System.Exception ex)
             {
-                FPLogger.LogException(ex, "禁用PetAI传送时发生异常");
+                // FPLogger.LogException(ex, "禁用PetAI传送时发生异常");
             }
         }
 
@@ -525,12 +525,12 @@ namespace FirstPersonCamera
                             {
                                 info.eventInfo.AddEventHandler(info.masterCharacter, (System.Delegate)info.eventHandler);
                                 restoredCount++;
-                                FPLogger.Log("已恢复PetAI传送（通过EventInfo）: PetAI={0}", info.petAIInstance);
+                                // FPLogger.Log("已恢复PetAI传送（通过EventInfo）: PetAI={0}", info.petAIInstance);
                                 continue;
                             }
                             catch (System.Exception ex)
                             {
-                                FPLogger.LogWarning("通过EventInfo恢复失败: {0}", ex.Message);
+                                // FPLogger.LogWarning("通过EventInfo恢复失败: {0}", ex.Message);
                             }
                         }
 
@@ -556,28 +556,28 @@ namespace FirstPersonCamera
                                 }
 
                                 restoredCount++;
-                                FPLogger.Log("已恢复PetAI传送（通过字段）: PetAI={0}", info.petAIInstance);
+                                // FPLogger.Log("已恢复PetAI传送（通过字段）: PetAI={0}", info.petAIInstance);
                             }
                             catch (System.Exception ex)
                             {
-                                FPLogger.LogWarning("通过字段恢复失败: {0}", ex.Message);
+                                // FPLogger.LogWarning("通过字段恢复失败: {0}", ex.Message);
                             }
                         }
                     }
                     catch (System.Exception ex)
                     {
-                        FPLogger.LogWarning("恢复PetAI传送时出错: {0}", ex.Message);
+                        // FPLogger.LogWarning("恢复PetAI传送时出错: {0}", ex.Message);
                     }
                 }
 
                 if (restoredCount > 0)
-                    FPLogger.Log("已恢复 {0} 个PetAI的传送功能", restoredCount);
+                    // FPLogger.Log("已恢复 {0} 个PetAI的传送功能", restoredCount);
 
                 petAIEventInfos.Clear();
             }
             catch (System.Exception ex)
             {
-                FPLogger.LogException(ex, "恢复PetAI传送时发生异常");
+                // FPLogger.LogException(ex, "恢复PetAI传送时发生异常");
             }
         }
 
@@ -599,7 +599,7 @@ namespace FirstPersonCamera
                 yield return new WaitForSeconds(0.1f);
             }
 
-            FPLogger.Log("ECM2 跳跃协程初始化完成");
+            // FPLogger.Log("ECM2 跳跃协程初始化完成");
             UpdateAllowDashCache();
 
             while (true)
@@ -755,11 +755,11 @@ namespace FirstPersonCamera
 
             if (mainCharacter.CurrentStamina < staminaCost)
             {
-                FPLogger.Log("跳跃失败: 体力不足 (当前: {0}, 需要: {1})", mainCharacter.CurrentStamina, staminaCost);
+                // FPLogger.Log("跳跃失败: 体力不足 (当前: {0}, 需要: {1})", mainCharacter.CurrentStamina, staminaCost);
                 return;
             }
             mainCharacter.UseStamina(staminaCost);
-            FPLogger.Log("ECM2跳跃，消耗体力: {0}", staminaCost);
+            // FPLogger.Log("ECM2跳跃，消耗体力: {0}", staminaCost);
 
             if (Instance != null) Instance.NotifyJumping();
 
@@ -782,7 +782,7 @@ namespace FirstPersonCamera
             }
             catch (System.Exception ex)
             {
-                FPLogger.LogException(ex, "ECM2跳跃执行失败");
+                // FPLogger.LogException(ex, "ECM2跳跃执行失败");
                 return;
             }
 
@@ -803,7 +803,7 @@ namespace FirstPersonCamera
         private void OnJumpInput(InputAction.CallbackContext context)
         {
             if (!context.started) return;
-            FPLogger.Log("新输入系统检测到跳跃输入");
+            // FPLogger.Log("新输入系统检测到跳跃输入");
             jumpRequested = true;
         }
 

@@ -91,6 +91,7 @@ namespace FirstPersonCamera
         /// </summary>
         private void UpdateCameraPosition()
         {
+            if (!EnableCameraUpdate) return;
             if (mainCamera == null) return;
 
             // 计算基础位置（头部插槽或角色位置 + 高度偏移）
@@ -229,6 +230,7 @@ namespace FirstPersonCamera
         /// <param name="uiBlocking">是否被UI阻挡（UI打开时不响应鼠标输入）</param>
         private void UpdateCameraRotation(bool uiBlocking)
         {
+            if (!EnableCameraUpdate) return;
             if (mainCamera == null) return;
             
             // 先处理后坐力回弹
@@ -249,6 +251,7 @@ namespace FirstPersonCamera
                         var mouse = Mouse.current;
                         if (mouse != null)
                         {
+                            // 使用 ReadValue() 获取原始增量（绕过平滑）
                             Vector2 d = mouse.delta.ReadValue();
                             mouseX = d.x;
                             mouseY = d.y;
@@ -256,8 +259,9 @@ namespace FirstPersonCamera
                     }
                     else
                     {
-                        mouseX = Input.GetAxis("Mouse X");
-                        mouseY = Input.GetAxis("Mouse Y");
+                        // 旧输入系统尝试使用 GetAxisRaw 以减小平滑影响
+                        mouseX = Input.GetAxisRaw("Mouse X");
+                        mouseY = Input.GetAxisRaw("Mouse Y");
                     }
                 }
                 catch
@@ -274,8 +278,8 @@ namespace FirstPersonCamera
                     suppressNextMouseDelta = false;
                 }
                 
-                // ========== 新增：压枪抵抗输入处理 ==========
-                SetRecoilResistance(mouseY); // 传递鼠标垂直增量
+                // ========== 压枪抵抗输入处理（暂时注释以排除干扰） ==========
+                // SetRecoilResistance(mouseY);
                 
                 // 根据当前倍镜倍率选择对应的灵敏度倍数（相对于普通灵敏度）
                 float currentSensitivityX = mouseSensitivityX;
@@ -339,25 +343,22 @@ namespace FirstPersonCamera
                     }
                 }
                 
-                // 更新yaw和pitch
-                // 关键修复：限制每帧最大旋转量，防止高帧率下的跳帧问题
-                // 原因：Unity Input System的mouse.delta在某些情况下可能会累积，特别是在高帧率下
-                // 通过限制每帧最大旋转量，可以防止突然的大幅跳跃，同时不影响后坐力系统
-                // 后坐力系统使用Time.unscaledDeltaTime进行恢复，不应该受到鼠标输入缩放的影响
-                // 注意：不使用时间缩放，因为这会影响到后坐力恢复系统的一致性
-                float maxRotationPerFrame = 10f; // 每帧最大旋转角度（度），防止跳帧（足够大以保持响应性）
+                // 计算基础增量
                 float deltaYaw = mouseX * currentSensitivityX;
                 float deltaPitch = mouseY * currentSensitivityY;
-                
-                // 限制每帧最大旋转量（防止异常大的delta值导致的跳帧）
-                // 这个限制足够大，不会影响正常使用，但可以防止异常情况
-                if (Mathf.Abs(deltaYaw) > maxRotationPerFrame)
+
+                // 自适应限制：每秒最大旋转速度（度/秒），设为较大值以覆盖极端操作
+                float maxRotationSpeed = 3600f; // 每秒 10 圈
+                float maxRotationThisFrame = maxRotationSpeed * Time.unscaledDeltaTime;
+
+                // 限制每帧最大旋转量（基于时间）
+                if (Mathf.Abs(deltaYaw) > maxRotationThisFrame)
                 {
-                    deltaYaw = Mathf.Sign(deltaYaw) * maxRotationPerFrame;
+                    deltaYaw = Mathf.Sign(deltaYaw) * maxRotationThisFrame;
                 }
-                if (Mathf.Abs(deltaPitch) > maxRotationPerFrame)
+                if (Mathf.Abs(deltaPitch) > maxRotationThisFrame)
                 {
-                    deltaPitch = Mathf.Sign(deltaPitch) * maxRotationPerFrame;
+                    deltaPitch = Mathf.Sign(deltaPitch) * maxRotationThisFrame;
                 }
                 
                 yaw += deltaYaw;
