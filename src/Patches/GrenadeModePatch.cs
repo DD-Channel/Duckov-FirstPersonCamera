@@ -2,6 +2,7 @@ using HarmonyLib;
 using UnityEngine;
 using FirstPersonCamera;
 using FirstPersonCamera.Utilities;
+using FirstPersonCamera.UI; // 新增：用于 FPLocalization
 using System.Collections.Generic;
 using System.Reflection;
 
@@ -25,7 +26,7 @@ namespace FirstPersonCamera
         // 手雷物品 TypeID 集合（所有手雷，请根据实际游戏补充）
         private static readonly HashSet<int> GRENADE_TYPE_IDS = new HashSet<int>
         {
-            23,24,66,67,660,933,941,942,1366,12406,12407,12409,12410
+            23,24,66,67,660,933,941,942,1366,12406,12407,12409,12410,100,1257,1351,1501
         };
 
         /// <summary>
@@ -59,12 +60,14 @@ namespace FirstPersonCamera
         }
 
         /// <summary>
-        /// 显示当前投掷模式（使用对话气泡）
+        /// 显示当前投掷模式（使用对话气泡，已本地化）
         /// </summary>
         private void ShowGrenadeModeMessage()
         {
-            string mode = grenadeFarMode ? "低抛" : "高抛";
-            string msg = $"<color=yellow>{mode}模式</color>";
+            string modeKey = grenadeFarMode ? "FPC_GrenadeModeFar" : "FPC_GrenadeModeNear";
+            string mode = FPLocalization.Get(modeKey);
+            string format = FPLocalization.Get("FPC_GrenadeModeFormat");
+            string msg = $"<color=yellow>{string.Format(format, mode)}</color>";
             ShowDialogueBubble(msg);
             FPLogger.Log($"[Grenade] 显示模式: {mode}");
         }

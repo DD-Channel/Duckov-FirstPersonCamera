@@ -65,7 +65,7 @@ namespace FirstPersonCamera.Patches
                     _savedViewDistance = (float)_viewDistanceField.GetValue(__instance);
                     if (_savedViewDistance < 0) _savedViewDistance = 0;
                     _wasAiming = true;
-                    FPLogger.Log($"[AimZoom] 进入开镜，保存 viewDistance={_savedViewDistance}");
+                    // FPLogger.Log($"[AimZoom] 进入开镜，保存 viewDistance={_savedViewDistance}");
                 }
 
                 float mag = controller.GetCurrentMagnification();
@@ -76,7 +76,7 @@ namespace FirstPersonCamera.Patches
                 _viewDistanceField.SetValue(__instance, targetViewDistance);
                 mainVis.ViewRadius = targetViewDistance;
 
-                FPLogger.Log($"[AimZoom] 开镜中，倍率={mag}, 乘数={multiplier}, 当前 viewDistance={targetViewDistance}");
+                // FPLogger.Log($"[AimZoom] 开镜中，倍率={mag}, 乘数={multiplier}, 当前 viewDistance={targetViewDistance}");
             }
             else
             {
@@ -87,7 +87,7 @@ namespace FirstPersonCamera.Patches
                     {
                         _viewDistanceField.SetValue(__instance, _savedViewDistance);
                         mainVis.ViewRadius = _savedViewDistance;
-                        FPLogger.Log($"[AimZoom] 退出开镜，恢复 viewDistance={_savedViewDistance}");
+                        // FPLogger.Log($"[AimZoom] 退出开镜，恢复 viewDistance={_savedViewDistance}");
                     }
                     _wasAiming = false;
                     _savedViewDistance = -1f;

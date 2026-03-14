@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using FirstPersonCamera.OptionsUI;
 using FirstPersonCamera.Utilities;
+using FirstPersonCamera.UI; // 新增：用于 LocalizedText 和 FPLocalization
 using System.Collections;
 using System.Collections.Generic;
 using Duckov;
@@ -165,7 +166,7 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建标题栏
+        /// 创建标题栏（已本地化）
         /// </summary>
         private void CreateTitleBar()
         {
@@ -192,10 +193,14 @@ namespace FirstPersonCamera.StandaloneUI
             titleRectTransform.anchoredPosition = Vector2.zero;
             
             var text = titleText.AddComponent<TextMeshProUGUI>();
-            text.text = "第一人称相机设置";
+            text.text = FPLocalization.Get("FPC_SettingsTitle");
             text.fontSize = 28f;
             text.alignment = TextAlignmentOptions.Center;
             text.color = Color.white;
+            
+            // 添加本地化组件
+            var localized = titleText.AddComponent<LocalizedText>();
+            localized.SetKey("FPC_SettingsTitle");
             
             // 在标题栏左上角添加版本号显示
             var versionLabel = new GameObject("VersionLabel");
@@ -209,7 +214,7 @@ namespace FirstPersonCamera.StandaloneUI
             versionRectTransform.anchoredPosition = new Vector2(10f, 0f);
             
             var versionText = versionLabel.AddComponent<TextMeshProUGUI>();
-            versionText.text = $"版本: {OptionsUIConstants.ModVersion}";
+            versionText.text = $"Version: {OptionsUIConstants.ModVersion}";
             versionText.fontSize = 16f;
             versionText.alignment = TextAlignmentOptions.Left;
             versionText.color = Color.green; // 使用绿色显示版本号
@@ -298,7 +303,7 @@ namespace FirstPersonCamera.StandaloneUI
             scrollRect.horizontal = false;
             scrollRect.vertical = true;
             scrollRect.movementType = ScrollRect.MovementType.Clamped;
-            scrollRect.scrollSensitivity = 20f;
+            scrollRect.scrollSensitivity = 1f;
             
             // 创建Viewport
             var viewport = new GameObject("Viewport");
@@ -361,12 +366,12 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建所有标签页
+        /// 创建所有标签页（已本地化）
         /// </summary>
         private void CreateAllTabs()
         {
             // 基础设置
-            CreateTab("Basic", "基础设置");
+            CreateTab("Basic", "FPC_SettingsTabBasic");
             if (tabContents.ContainsKey("Basic"))
             {
                 Tabs.BasicTabBuilder.Build(
@@ -375,7 +380,7 @@ namespace FirstPersonCamera.StandaloneUI
             }
 
             // 灵敏度设置
-            CreateTab("Sensitivity", "灵敏度设置");
+            CreateTab("Sensitivity", "FPC_SettingsTabSensitivity");
             if (tabContents.ContainsKey("Sensitivity"))
             {
                 Tabs.SensitivityTabBuilder.Build(
@@ -384,7 +389,7 @@ namespace FirstPersonCamera.StandaloneUI
             }
 
             // 键位设置
-            CreateTab("Keybinds", "键位设置");
+            CreateTab("Keybinds", "FPC_SettingsTabKeybinds");
             if (tabContents.ContainsKey("Keybinds"))
             {
                 Tabs.KeybindsTabBuilder.Build(
@@ -393,7 +398,7 @@ namespace FirstPersonCamera.StandaloneUI
             }
 
             // 人物显示设置
-            CreateTab("Display", "人物显示设置");
+            CreateTab("Display", "FPC_SettingsTabDisplay");
             if (tabContents.ContainsKey("Display"))
             {
                 Tabs.DisplayTabBuilder.Build(
@@ -403,7 +408,7 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建第一人称设置标签页
+        /// 创建第一人称设置标签页（旧方法，未使用）
         /// </summary>
         private void CreateFirstPersonTab()
         {
@@ -475,7 +480,7 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建显示设置标签页
+        /// 创建显示设置标签页（旧方法，未使用）
         /// </summary>
         private void CreateDisplayTab()
         {
@@ -523,9 +528,9 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建标签页
+        /// 创建标签页（已本地化）
         /// </summary>
-        private void CreateTab(string tabId, string tabName)
+        private void CreateTab(string tabId, string tabNameKey)
         {
             // 创建标签按钮
             var tabButton = new GameObject($"TabButton_{tabId}");
@@ -559,10 +564,14 @@ namespace FirstPersonCamera.StandaloneUI
             textRectTransform.anchoredPosition = Vector2.zero;
             
             var text = buttonText.AddComponent<TextMeshProUGUI>();
-            text.text = tabName;
+            text.text = FPLocalization.Get(tabNameKey);
             text.fontSize = 22f;
             text.alignment = TextAlignmentOptions.Center;
             text.color = Color.white;
+            
+            // 添加本地化组件
+            var localized = buttonText.AddComponent<LocalizedText>();
+            localized.SetKey(tabNameKey);
             
             // 创建标签页内容
             var tabContent = new GameObject($"TabContent_{tabId}");
@@ -754,4 +763,3 @@ namespace FirstPersonCamera.StandaloneUI
         #endregion
     }
 }
-

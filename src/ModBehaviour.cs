@@ -21,6 +21,7 @@ using Duckov.Modding;
 using Duckov.Scenes;
 using HarmonyLib;
 using FirstPersonCamera.Utilities;
+using System.IO;
 
 namespace FirstPersonCamera
 {
@@ -52,6 +53,9 @@ namespace FirstPersonCamera
 
             // 监听场景事件
             SceneLoader.onAfterSceneInitialize += OnSceneInitialized;
+            // 初始化本地化
+            string configDir = Path.GetDirectoryName(ConfigManager.GetConfigFilePath());
+            FPLocalization.Initialize(configDir);
 
             // 初始化相机控制器
             InitializeController();
@@ -63,6 +67,11 @@ namespace FirstPersonCamera
             {
                 gameObject.AddComponent<FpsPerfTuner>();
             }
+            gameObject.AddComponent<VehicleCameraController>();
+            // 初始化锁定系统
+            _ = LockOnSystem.Instance;
+            // 初始化入侵控制器
+            gameObject.AddComponent<HackPossessionController>();
         }
 
         protected override void OnBeforeDeactivate()
@@ -171,6 +180,7 @@ namespace FirstPersonCamera
                 gameObject.AddComponent<FirstPersonOptionsUI>();
                 FPLogger.Log("简化版UI系统已初始化");
             }
+        gameObject.AddComponent<SniperEnhancementController>();
         }
     }
 }

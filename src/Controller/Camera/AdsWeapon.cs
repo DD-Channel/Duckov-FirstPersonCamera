@@ -3,6 +3,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 using FirstPersonCamera.Utilities;
+using FirstPersonCamera.UI; // 新增：用于 FPLocalization
 
 namespace FirstPersonCamera
 {
@@ -679,7 +680,7 @@ namespace FirstPersonCamera
         }
 
         /// <summary>
-        /// 更新ADS提示UI显示状态
+        /// 更新ADS提示UI显示状态（本地化版本）
         /// </summary>
         /// <param name="show">是否显示提示</param>
         private void UpdateAdsHint(bool show)
@@ -700,17 +701,20 @@ namespace FirstPersonCamera
             if (adsHintText.gameObject.activeSelf != shouldShow)
                 adsHintText.gameObject.SetActive(shouldShow);
             
-            // 更新提示文字根据当前模式
+            // 更新提示文字根据当前模式（本地化版本）
             if (shouldShow)
             {
-                string modeText = adsAdjustMode switch
+                // 根据当前调节模式获取本地化键
+                string modeKey = adsAdjustMode switch
                 {
-                    AdsAdjustMode.X => "左右",
-                    AdsAdjustMode.Y => "上下",
-                    AdsAdjustMode.Z => "前后",
-                    _ => "上下"
+                    AdsAdjustMode.X => "FPC_AdsAdjustModeX",
+                    AdsAdjustMode.Y => "FPC_AdsAdjustModeY",
+                    AdsAdjustMode.Z => "FPC_AdsAdjustModeZ",
+                    _ => "FPC_AdsAdjustModeY"
                 };
-                adsHintText.text = $"滚轮调整枪械{modeText}|[-]切换方向";
+                string modeText = FPLocalization.Get(modeKey);
+                string hintFormat = FPLocalization.Get("FPC_AdsAdjustHint");
+                adsHintText.text = string.Format(hintFormat, modeText);
             }
         }
 
@@ -744,7 +748,7 @@ namespace FirstPersonCamera
                 rectTransform.sizeDelta = new Vector2(600f, 40f);
 
                 adsHintText = textGO.AddComponent<TextMeshProUGUI>();
-                adsHintText.text = "滚轮调整枪械高度"; // 初始文字
+                adsHintText.text = ""; // 初始为空，后续由 UpdateAdsHint 设置
                 adsHintText.fontSize = 24f;
                 adsHintText.color = new Color(1f, 1f, 1f, 0.8f);
                 adsHintText.alignment = TextAlignmentOptions.Center;
@@ -759,7 +763,7 @@ namespace FirstPersonCamera
             }
             catch (System.Exception ex)
             {
-                FPLogger.LogException(ex, "Failed to create ADS hint UI");
+                // FPLogger.LogException(ex, "Failed to create ADS hint UI");
                 if (adsHintCanvas != null)
                 {
                     Object.Destroy(adsHintCanvas);

@@ -155,7 +155,7 @@ namespace FirstPersonCamera
                 var buttonText = buttonGO.GetComponentInChildren<TMP_Text>(true);
                 if (buttonText != null)
                 {
-                    buttonText.text = "第一人称相机";
+                    buttonText.text = FPLocalization.Get("FPC_MainMenuButton");
                     cachedButtonText = buttonText;
                     cachedButton = buttonGO;
                 }
@@ -223,11 +223,12 @@ namespace FirstPersonCamera
         /// </summary>
         private void KeepButtonTextCorrect()
         {
+            string localizedText = FPLocalization.Get("FPC_MainMenuButton");
             if (cachedButton != null && cachedButtonText != null)
             {
-                if (cachedButtonText.text != "第一人称相机")
+                if (cachedButtonText.text != localizedText)
                 {
-                    cachedButtonText.text = "第一人称相机";
+                    cachedButtonText.text = localizedText;
                 }
             }
             else if (cachedOptionsPanel != null)
@@ -240,7 +241,7 @@ namespace FirstPersonCamera
                     cachedButtonText = button.GetComponentInChildren<TMP_Text>(true);
                     if (cachedButtonText != null)
                     {
-                        cachedButtonText.text = "第一人称相机";
+                        cachedButtonText.text = localizedText;
                     }
                 }
             }

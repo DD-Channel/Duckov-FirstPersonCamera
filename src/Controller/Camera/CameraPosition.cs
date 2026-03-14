@@ -91,6 +91,7 @@ namespace FirstPersonCamera
         /// </summary>
         private void UpdateCameraPosition()
         {
+            if (!EnableCameraUpdate) return;
             if (mainCamera == null) return;
 
             // 计算基础位置（头部插槽或角色位置 + 高度偏移）
@@ -229,6 +230,7 @@ namespace FirstPersonCamera
         /// <param name="uiBlocking">是否被UI阻挡（UI打开时不响应鼠标输入）</param>
         private void UpdateCameraRotation(bool uiBlocking)
         {
+            if (!EnableCameraUpdate) return;
             if (mainCamera == null) return;
             
             // 先处理后坐力回弹

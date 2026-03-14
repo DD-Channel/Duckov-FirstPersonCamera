@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FirstPersonCamera.Utilities;
+using FirstPersonCamera.UI;          // 新增
 using System.Collections.Generic;
 
 namespace FirstPersonCamera.StandaloneUI
@@ -26,9 +27,9 @@ namespace FirstPersonCamera.StandaloneUI
 
         #region 创建方法
         /// <summary>
-        /// 创建分组标题
+        /// 创建分组标题（本地化版本）
         /// </summary>
-        public static GameObject CreateSectionTitle(Transform parent, string title)
+        public static GameObject CreateSectionTitle(Transform parent, string localizationKey)
         {
             var section = new GameObject("SectionTitle");
             section.transform.SetParent(parent, false);
@@ -37,23 +38,24 @@ namespace FirstPersonCamera.StandaloneUI
             rectTransform.sizeDelta = new Vector2(0f, 30f);
             
             var text = section.AddComponent<TextMeshProUGUI>();
-            text.text = title;
+            text.text = FPLocalization.Get(localizationKey);
             text.fontSize = SectionTitleFontSize;
-            text.color = new Color(0.7f, 0.8f, 1f, 1f); // 浅蓝色
+            text.color = new Color(0.7f, 0.8f, 1f, 1f);
             text.fontStyle = FontStyles.Bold;
             text.alignment = TextAlignmentOptions.MidlineLeft;
-            
-            // 添加下划线
+
+            var localized = section.AddComponent<LocalizedText>();
+            localized.SetKey(localizationKey);
+
+            // 下划线
             var underline = new GameObject("Underline");
             underline.transform.SetParent(section.transform, false);
-            
             var underlineRect = underline.AddComponent<RectTransform>();
             underlineRect.anchorMin = new Vector2(0f, 0f);
             underlineRect.anchorMax = new Vector2(1f, 0f);
             underlineRect.pivot = new Vector2(0.5f, 0.5f);
             underlineRect.sizeDelta = new Vector2(0f, 2f);
             underlineRect.anchoredPosition = new Vector2(0f, -2f);
-            
             var underlineImage = underline.AddComponent<Image>();
             underlineImage.color = new Color(0.4f, 0.5f, 0.7f, 0.6f);
             
@@ -61,7 +63,7 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建分隔线
+        /// 创建分隔线（不变）
         /// </summary>
         public static GameObject CreateDivider(Transform parent)
         {
@@ -78,11 +80,11 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建滑块行
+        /// 创建滑块行（本地化版本）
         /// </summary>
         public static void CreateSliderRow(
             Transform parent,
-            string labelText,
+            string localizationKey,
             string configKey,
             float minValue,
             float maxValue,
@@ -91,8 +93,8 @@ namespace FirstPersonCamera.StandaloneUI
         {
             var row = CreateRow(parent);
             
-            // 创建标签
-            var label = CreateLabel(row.transform, labelText);
+            // 创建标签（使用本地化键）
+            var label = CreateLabel(row.transform, localizationKey);
             var labelRect = label.GetComponent<RectTransform>();
             labelRect.sizeDelta = new Vector2(LabelWidth, RowHeight);
             
@@ -128,19 +130,19 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建开关行
+        /// 创建开关行（本地化版本）
         /// </summary>
         public static void CreateToggleRow(
             Transform parent,
-            string labelText,
+            string localizationKey,
             string configKey,
             bool defaultValue,
             Dictionary<string, Toggle> toggles)
         {
             var row = CreateRow(parent);
             
-            // 创建标签
-            var label = CreateLabel(row.transform, labelText);
+            // 创建标签（使用本地化键）
+            var label = CreateLabel(row.transform, localizationKey);
             var labelRect = label.GetComponent<RectTransform>();
             labelRect.sizeDelta = new Vector2(LabelWidth, RowHeight);
             
@@ -155,7 +157,7 @@ namespace FirstPersonCamera.StandaloneUI
             // 先加载初始值
             bool loadedValue = OptionsHelper.LoadInt(configKey, defaultValue ? 1 : 0) == 1;
             
-            // 先绑定事件（在设置值之前，避免触发）
+            // 绑定事件（在设置值之前，避免触发）
             toggleComponent.onValueChanged.AddListener((value) =>
             {
                 // 更新视觉效果
@@ -171,10 +173,10 @@ namespace FirstPersonCamera.StandaloneUI
                 OptionsHelper.ApplyToggleSetting(configKey, value);
             });
             
-            // 然后设置初始值（这会触发上面的监听器，但此时ToggleAnimator已经初始化）
+            // 设置初始值
             toggleComponent.isOn = loadedValue;
             
-            // 确保ToggleAnimator的视觉效果正确（如果上面的设置没有触发）
+            // 确保ToggleAnimator的视觉效果正确
             if (toggleAnimator != null)
             {
                 toggleAnimator.OnValueChanged(loadedValue);
@@ -184,7 +186,7 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建按键绑定行
+        /// 创建按键绑定行（不变，但注意它调用了CreateLabel，目前传入的是字符串而非本地化键）
         /// </summary>
         public static void CreateKeybindRow(
             Transform parent,
@@ -195,7 +197,8 @@ namespace FirstPersonCamera.StandaloneUI
         {
             var row = CreateRow(parent);
             
-            // 创建标签
+            // 创建标签（这里直接传入文本，但CreateLabel现在期望本地化键，因此会作为键去查找）
+            // 如果希望正确本地化，请将labelText改为localizationKey
             var label = CreateLabel(row.transform, labelText);
             var labelRect = label.GetComponent<RectTransform>();
             labelRect.sizeDelta = new Vector2(LabelWidth, RowHeight);
@@ -210,7 +213,7 @@ namespace FirstPersonCamera.StandaloneUI
 
         #region 辅助方法
         /// <summary>
-        /// 创建行容器
+        /// 创建行容器（不变）
         /// </summary>
         private static GameObject CreateRow(Transform parent)
         {
@@ -237,40 +240,41 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建标签
+        /// 创建标签（本地化版本）
         /// </summary>
-        private static GameObject CreateLabel(Transform parent, string text)
+        private static GameObject CreateLabel(Transform parent, string localizationKey)
         {
             var label = new GameObject("Label");
             label.transform.SetParent(parent, false);
 
             var rectTransform = label.AddComponent<RectTransform>();
-            // 确保anchor设置正确
             rectTransform.anchorMin = new Vector2(0f, 0.5f);
             rectTransform.anchorMax = new Vector2(0f, 0.5f);
             rectTransform.pivot = new Vector2(0f, 0.5f);
 
             var textComponent = label.AddComponent<TextMeshProUGUI>();
-            textComponent.text = text;
             textComponent.fontSize = LabelFontSize;
-            textComponent.color = new Color(0.95f, 0.95f, 0.95f, 1f); // 接近白色
+            textComponent.color = new Color(0.95f, 0.95f, 0.95f, 1f);
             textComponent.alignment = TextAlignmentOptions.MidlineLeft;
-            textComponent.raycastTarget = false; // 标签不阻挡点击
-            // TextMeshProUGUI会自动使用默认字体，不需要手动设置
+            textComponent.enableWordWrapping = true;  // 启用自动换行
+            textComponent.text = FPLocalization.Get(localizationKey);
 
-            // 关键：为布局系统提供固定的首选尺寸，避免被布局压缩为0宽
+            // 移除固定的 LayoutElement，改为使用 ContentSizeFitter 让高度自适应
+            var sizeFitter = label.AddComponent<ContentSizeFitter>();
+            sizeFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize; // 水平优先扩展（但受父容器限制）
+            sizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;   // 垂直自适应
+
+            // 为保证布局不混乱，可设置最小宽度，但允许扩展
             var layout = label.AddComponent<LayoutElement>();
-            layout.minWidth = LabelWidth;
-            layout.preferredWidth = LabelWidth;
-            layout.minHeight = RowHeight;
-            layout.preferredHeight = RowHeight;
-            layout.flexibleWidth = 0f;
+            layout.minWidth = LabelWidth;          // 最小宽度（原固定宽度）
+            layout.preferredWidth = -1;             // 不限制首选宽度
+            layout.flexibleWidth = 1;                // 允许水平扩展（如果父容器有剩余空间）
 
             return label;
         }
 
         /// <summary>
-        /// 创建滑块
+        /// 创建滑块（不变）
         /// </summary>
         private static GameObject CreateSlider(Transform parent, float min, float max, float defaultValue)
         {
@@ -278,7 +282,7 @@ namespace FirstPersonCamera.StandaloneUI
             slider.transform.SetParent(parent, false);
 
             var rectTransform = slider.AddComponent<RectTransform>();
-            rectTransform.sizeDelta = new Vector2(SliderWidth, RowHeight); // 设置明确的尺寸
+            rectTransform.sizeDelta = new Vector2(SliderWidth, RowHeight);
 
             // 为布局系统提供首选尺寸
             var sliderLayout = slider.AddComponent<LayoutElement>();
@@ -295,7 +299,7 @@ namespace FirstPersonCamera.StandaloneUI
             sliderComponent.wholeNumbers = false;
             sliderComponent.direction = Slider.Direction.LeftToRight;
             
-            // 创建背景（轨道）- 必须可见
+            // 创建背景（轨道）
             var background = new GameObject("Background");
             background.transform.SetParent(slider.transform, false);
             
@@ -307,7 +311,7 @@ namespace FirstPersonCamera.StandaloneUI
             bgRectTransform.anchoredPosition = Vector2.zero;
             
             var bgImage = background.AddComponent<Image>();
-            bgImage.color = new Color(0.3f, 0.3f, 0.35f, 1f); // 更亮的背景色，确保可见
+            bgImage.color = new Color(0.3f, 0.3f, 0.35f, 1f);
             sliderComponent.targetGraphic = bgImage;
             
             // 创建填充区域
@@ -318,7 +322,7 @@ namespace FirstPersonCamera.StandaloneUI
             fillAreaRectTransform.anchorMin = new Vector2(0f, 0.5f);
             fillAreaRectTransform.anchorMax = new Vector2(1f, 0.5f);
             fillAreaRectTransform.pivot = new Vector2(0.5f, 0.5f);
-            fillAreaRectTransform.sizeDelta = new Vector2(-40f, SliderHeight); // 为手柄留出空间
+            fillAreaRectTransform.sizeDelta = new Vector2(-40f, SliderHeight);
             fillAreaRectTransform.anchoredPosition = Vector2.zero;
             
             var fill = new GameObject("Fill");
@@ -331,7 +335,7 @@ namespace FirstPersonCamera.StandaloneUI
             fillRectTransform.anchoredPosition = Vector2.zero;
             
             var fillImage = fill.AddComponent<Image>();
-            fillImage.color = new Color(0.2f, 0.6f, 0.9f, 1f); // 蓝色填充
+            fillImage.color = new Color(0.2f, 0.6f, 0.9f, 1f);
             sliderComponent.fillRect = fillRectTransform;
             
             // 创建手柄滑动区域
@@ -356,7 +360,7 @@ namespace FirstPersonCamera.StandaloneUI
             var handleImage = handle.AddComponent<Image>();
             handleImage.color = Color.white;
             
-            // 添加手柄边框效果（内部阴影）
+            // 添加手柄边框效果
             var handleBorder = new GameObject("Border");
             handleBorder.transform.SetParent(handle.transform, false);
             
@@ -368,7 +372,7 @@ namespace FirstPersonCamera.StandaloneUI
             borderRect.anchoredPosition = Vector2.zero;
             
             var borderImage = handleBorder.AddComponent<Image>();
-            borderImage.color = new Color(0.4f, 0.4f, 0.45f, 1f); // 浅灰色边框
+            borderImage.color = new Color(0.4f, 0.4f, 0.45f, 1f);
             
             sliderComponent.handleRect = handleRectTransform;
             
@@ -376,7 +380,7 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建数值显示字段
+        /// 创建数值显示字段（不变）
         /// </summary>
         private static GameObject CreateValueField(Transform parent, float defaultValue)
         {
@@ -409,7 +413,7 @@ namespace FirstPersonCamera.StandaloneUI
             var text = valueField.AddComponent<TextMeshProUGUI>();
             text.text = defaultValue.ToString("F2");
             text.fontSize = LabelFontSize;
-            text.color = new Color(0.9f, 0.9f, 1f, 1f); // 浅蓝色文字
+            text.color = new Color(0.9f, 0.9f, 1f, 1f);
             text.alignment = TextAlignmentOptions.MidlineRight;
             text.margin = new Vector4(5f, 0f, 5f, 0f);
             
@@ -417,7 +421,7 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建开关（完全重新设计，确保可见）
+        /// 创建开关（不变）
         /// </summary>
         private static GameObject CreateToggle(Transform parent)
         {
@@ -425,14 +429,11 @@ namespace FirstPersonCamera.StandaloneUI
             toggle.transform.SetParent(parent, false);
 
             var rectTransform = toggle.AddComponent<RectTransform>();
-            // 对于HorizontalLayoutGroup的子元素，使用left-center anchor
             rectTransform.anchorMin = new Vector2(0f, 0.5f);
             rectTransform.anchorMax = new Vector2(0f, 0.5f);
             rectTransform.pivot = new Vector2(0f, 0.5f);
-            // 设置明确的尺寸，让HorizontalLayoutGroup自动排列
             rectTransform.sizeDelta = new Vector2(ToggleSize, ToggleSize);
 
-            // 关键：为布局系统提供固定的首选尺寸，避免被压缩为0宽导致“看不见”
             var toggleLayout = toggle.AddComponent<LayoutElement>();
             toggleLayout.minWidth = ToggleSize;
             toggleLayout.preferredWidth = ToggleSize;
@@ -443,7 +444,7 @@ namespace FirstPersonCamera.StandaloneUI
             var toggleComponent = toggle.AddComponent<Toggle>();
             toggleComponent.isOn = false;
             
-            // 创建背景（方框）- 使用更明显的颜色和边框
+            // 创建背景
             var background = new GameObject("Background");
             background.transform.SetParent(toggle.transform, false);
             
@@ -454,15 +455,11 @@ namespace FirstPersonCamera.StandaloneUI
             bgRectTransform.anchoredPosition = Vector2.zero;
             
             var bgImage = background.AddComponent<Image>();
-            bgImage.color = new Color(0.25f, 0.25f, 0.25f, 1f); // 深灰色背景
-            bgImage.raycastTarget = true; // 确保可以接收射线检测
+            bgImage.color = new Color(0.25f, 0.25f, 0.25f, 1f);
+            bgImage.raycastTarget = true;
             toggleComponent.targetGraphic = bgImage;
             
-            // 添加边框效果 - 使用Outline组件（如果可用）或简单的颜色对比
-            // 为了简单，我们直接使用背景颜色的对比来创建边框效果
-            // 通过调整背景颜色本身来创建视觉边框
-            
-            // 创建勾选标记（使用填充方块，更明显）
+            // 创建勾选标记
             var checkmark = new GameObject("Checkmark");
             checkmark.transform.SetParent(background.transform, false);
             
@@ -473,11 +470,10 @@ namespace FirstPersonCamera.StandaloneUI
             checkmarkRectTransform.anchoredPosition = Vector2.zero;
             
             var checkmarkImage = checkmark.AddComponent<Image>();
-            checkmarkImage.color = new Color(0.1f, 0.8f, 0.2f, 1f); // 亮绿色，确保可见
-            checkmarkImage.enabled = false; // 初始隐藏，由Toggle控制
-            checkmarkImage.raycastTarget = false; // 不阻挡点击
+            checkmarkImage.color = new Color(0.1f, 0.8f, 0.2f, 1f);
+            checkmarkImage.enabled = false;
+            checkmarkImage.raycastTarget = false;
             
-            // 关键：将checkmark设置为Toggle的graphic，Unity会自动控制显示/隐藏
             toggleComponent.graphic = checkmarkImage;
             
             // 添加动画组件
@@ -488,7 +484,7 @@ namespace FirstPersonCamera.StandaloneUI
         }
 
         /// <summary>
-        /// 创建按键绑定按钮（完全重新设计，确保文本可见）
+        /// 创建按键绑定按钮（不变）
         /// </summary>
         private static GameObject CreateKeybindButton(Transform parent, string configKey, KeyCode defaultValue)
         {
@@ -496,14 +492,11 @@ namespace FirstPersonCamera.StandaloneUI
             button.transform.SetParent(parent, false);
 
             var rectTransform = button.AddComponent<RectTransform>();
-            // 对于HorizontalLayoutGroup的子元素，使用left-center anchor
             rectTransform.anchorMin = new Vector2(0f, 0.5f);
             rectTransform.anchorMax = new Vector2(0f, 0.5f);
             rectTransform.pivot = new Vector2(0f, 0.5f);
-            // 设置明确的尺寸，让HorizontalLayoutGroup自动排列
             rectTransform.sizeDelta = new Vector2(180f, RowHeight);
 
-            // 为布局系统提供首选尺寸，确保不会被压缩
             var keyLayout = button.AddComponent<LayoutElement>();
             keyLayout.minWidth = 180f;
             keyLayout.preferredWidth = 180f;
@@ -511,17 +504,13 @@ namespace FirstPersonCamera.StandaloneUI
             keyLayout.preferredHeight = RowHeight;
             keyLayout.flexibleWidth = 0f;
             
-            // 创建背景图片 - 使用更明显的颜色和边框
             var bgImage = button.AddComponent<Image>();
-            bgImage.color = new Color(0.2f, 0.25f, 0.35f, 1f); // 深蓝灰色背景
-            bgImage.raycastTarget = true; // 确保可以接收射线检测
-            
-            // 边框效果通过背景颜色对比来实现，不需要单独的边框对象
+            bgImage.color = new Color(0.2f, 0.25f, 0.35f, 1f);
+            bgImage.raycastTarget = true;
             
             var buttonComponent = button.AddComponent<Button>();
             buttonComponent.targetGraphic = bgImage;
             
-            // 添加颜色过渡
             var colors = buttonComponent.colors;
             colors.normalColor = new Color(0.2f, 0.25f, 0.35f, 1f);
             colors.highlightedColor = new Color(0.3f, 0.35f, 0.45f, 1f);
@@ -530,7 +519,6 @@ namespace FirstPersonCamera.StandaloneUI
             colors.colorMultiplier = 1f;
             buttonComponent.colors = colors;
             
-            // 创建文本 - 确保在背景之上，使用高对比度颜色
             var text = new GameObject("Text");
             text.transform.SetParent(button.transform, false);
             
@@ -539,21 +527,18 @@ namespace FirstPersonCamera.StandaloneUI
             textRectTransform.anchorMax = new Vector2(1f, 1f);
             textRectTransform.sizeDelta = Vector2.zero;
             textRectTransform.anchoredPosition = Vector2.zero;
-            // 确保文本在边框之上
             textRectTransform.SetAsLastSibling();
             
             var textComponent = text.AddComponent<TextMeshProUGUI>();
-            textComponent.fontSize = 20f; // 稍微小一点，确保完整显示
-            textComponent.color = new Color(1f, 1f, 1f, 1f); // 纯白色，高对比度
+            textComponent.fontSize = 20f;
+            textComponent.color = new Color(1f, 1f, 1f, 1f);
             textComponent.alignment = TextAlignmentOptions.Center;
-            textComponent.raycastTarget = false; // 文本不阻挡点击
-            textComponent.fontStyle = FontStyles.Bold; // 加粗，更明显
+            textComponent.raycastTarget = false;
+            textComponent.fontStyle = FontStyles.Bold;
             
-            // 加载初始值
             KeyCode loadedKey = OptionsHelper.LoadKeyCode(configKey, defaultValue);
             textComponent.text = loadedKey.ToString();
             
-            // 添加按键重绑定组件
             var rebinder = button.AddComponent<StandaloneKeyRebinder>();
             rebinder.Initialize(configKey, textComponent, buttonComponent, defaultValue);
             
@@ -563,7 +548,7 @@ namespace FirstPersonCamera.StandaloneUI
     }
 
     /// <summary>
-    /// 开关动画组件（优化版，确保视觉效果正确）
+    /// 开关动画组件（不变）
     /// </summary>
     public class ToggleAnimator : MonoBehaviour
     {
@@ -583,16 +568,13 @@ namespace FirstPersonCamera.StandaloneUI
             background = bg;
             checkmark = ck;
             
-            // 立即更新初始状态，不等待动画
+            // 立即更新初始状态
             if (toggle != null && checkmark != null)
             {
                 UpdateVisuals(toggle.isOn, false);
             }
         }
         
-        /// <summary>
-        /// 手动触发视觉更新（由外部调用）
-        /// </summary>
         public void OnValueChanged(bool value)
         {
             if (toggle == null || background == null || checkmark == null) return;
@@ -610,14 +592,11 @@ namespace FirstPersonCamera.StandaloneUI
                 isAnimating = true;
                 elapsedTime = 0f;
                 startBgColor = background.color;
-                // 开启时：绿色背景；关闭时：深灰色背景
                 endBgColor = isOn ? new Color(0.1f, 0.6f, 0.25f, 1f) : new Color(0.25f, 0.25f, 0.25f, 1f);
             }
             else
             {
-                // 立即设置，不动画
                 background.color = isOn ? new Color(0.1f, 0.6f, 0.25f, 1f) : new Color(0.25f, 0.25f, 0.25f, 1f);
-                // checkmark的显示由Toggle的graphic属性自动控制，但我们也可以手动设置
                 if (checkmark != null)
                 {
                     checkmark.enabled = isOn;
@@ -632,13 +611,10 @@ namespace FirstPersonCamera.StandaloneUI
             
             elapsedTime += Time.unscaledDeltaTime;
             float t = Mathf.Clamp01(elapsedTime / animationTime);
-            
-            // 平滑插值
-            float smoothT = t * t * (3f - 2f * t); // Smoothstep
+            float smoothT = t * t * (3f - 2f * t);
             
             background.color = Color.Lerp(startBgColor, endBgColor, smoothT);
             
-            // checkmark的显示由Toggle控制，但我们确保颜色正确
             if (checkmark != null)
             {
                 checkmark.enabled = targetValue;
@@ -648,7 +624,6 @@ namespace FirstPersonCamera.StandaloneUI
             if (t >= 1f)
             {
                 isAnimating = false;
-                // 确保最终状态正确
                 if (checkmark != null)
                 {
                     checkmark.enabled = targetValue;

@@ -22,10 +22,10 @@ namespace FirstPersonCamera
         #region 倍镜FOV管理
         private void UpdateScopeFOV(ItemAgent_Gun gun)
         {
-            FPLogger.Log("[UpdateScopeFOV] called");
+            // FPLogger.Log("[UpdateScopeFOV] called");
             if (gun == null || gun.Item == null || mainCamera == null)
             {
-                FPLogger.Log("[UpdateScopeFOV] gun/camera null, returning");
+                // FPLogger.Log("[UpdateScopeFOV] gun/camera null, returning");
                 return;
             }
 
@@ -47,7 +47,7 @@ namespace FirstPersonCamera
                         if (currentScopeTypeID != newScopeTypeID)
                         {
                             currentScopeTypeID = newScopeTypeID;
-                            FPLogger.Log($"[UpdateScopeFOV] external scope, magnification={magnification}");
+                            // FPLogger.Log($"[UpdateScopeFOV] external scope, magnification={magnification}");
                             // 更新准星隐藏（由倍镜决定）
                             UpdateAdsCrosshair(newScopeTypeID);
                         }
@@ -64,7 +64,7 @@ namespace FirstPersonCamera
                     if (currentScopeTypeID != gunTypeID)
                     {
                         currentScopeTypeID = gunTypeID;
-                        FPLogger.Log($"[UpdateScopeFOV] gun integrated scope, magnification={magnification}");
+                        // FPLogger.Log($"[UpdateScopeFOV] gun integrated scope, magnification={magnification}");
                         // 调用准星隐藏，传入枪械ID（需在AdsCrosshair字典中配置该ID对应的准星规则）
                         UpdateAdsCrosshair(gunTypeID);
                     }
@@ -77,12 +77,12 @@ namespace FirstPersonCamera
                     targetScopeFovMultiplier = 1f;
                     currentScopeTypeID = -1;
                     RestoreAdsCrosshair();
-                    FPLogger.Log("[UpdateScopeFOV] no scope, resetting");
+                    // FPLogger.Log("[UpdateScopeFOV] no scope, resetting");
                 }
             }
             catch (System.Exception ex)
             {
-                FPLogger.Log($"[UpdateScopeFOV] exception: {ex.Message}");
+                // FPLogger.Log($"[UpdateScopeFOV] exception: {ex.Message}");
             }
         }
 
@@ -106,6 +106,7 @@ namespace FirstPersonCamera
                 case 653:
                     return 2.5f;
                 case 1480:
+                case 10143:
                     return 4f;
                 default:
                     return 0f; // 0 表示没有自带倍镜

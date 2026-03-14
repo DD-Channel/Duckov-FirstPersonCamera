@@ -9,6 +9,7 @@ using UnityEngine.Events;
 using UnityEngine.UI;
 using FirstPersonCamera.Utilities;
 using FirstPersonCamera;
+using FirstPersonCamera.UI; // 新增：用于 FPLocalization
 
 namespace FirstPersonCamera.Patches.UI
 {
@@ -92,20 +93,11 @@ namespace FirstPersonCamera.Patches.UI
                 yield return null;
                 
                 // 再次设置文本，防止被本地化系统覆盖
-                if (inspectLabel != null)
-                {
-                    inspectLabel.text = "检视";
-                    inspectLabel.color = Color.white;
-                    inspectLabel.gameObject.SetActive(true);
-                    inspectLabel.enabled = true;
-                }
+                ApplyButtonStyle(); // 直接调用 ApplyButtonStyle 确保使用本地化字符串
                 
                 // 再等待一帧，再次确保文本设置
                 yield return null;
-                if (inspectLabel != null)
-                {
-                    inspectLabel.text = "检视";
-                }
+                ApplyButtonStyle();
             }
 
             private static Item TryGetTargetItem(ItemOperationMenu menu)
@@ -143,7 +135,7 @@ namespace FirstPersonCamera.Patches.UI
                 }
                 catch (Exception ex)
                 {
-                    FPLogger.LogException(ex, "Inspect button click failed");
+                    // FPLogger.LogException(ex, "Inspect button click failed");
                     try { owner?.Close(); } catch { }
                 }
             }
@@ -189,10 +181,10 @@ namespace FirstPersonCamera.Patches.UI
                     }
                 }
                 
-                // 强制设置文本和样式
+                // 强制设置文本和样式（使用本地化字符串）
                 if (inspectLabel != null)
                 {
-                    inspectLabel.text = "检视";
+                    inspectLabel.text = FPLocalization.Get("FPC_Inspect");
                     inspectLabel.color = Color.white;
                     inspectLabel.gameObject.SetActive(true);
                     inspectLabel.enabled = true;
@@ -241,7 +233,7 @@ namespace FirstPersonCamera.Patches.UI
             }
             catch (Exception ex)
             {
-                FPLogger.LogException(ex, "Failed to init InspectMenuExtension");
+                // FPLogger.LogException(ex, "Failed to init InspectMenuExtension");
             }
         }
 
@@ -261,7 +253,7 @@ namespace FirstPersonCamera.Patches.UI
             }
             catch (Exception ex)
             {
-                FPLogger.LogException(ex, "Failed to refresh Inspect button");
+                // FPLogger.LogException(ex, "Failed to refresh Inspect button");
             }
         }
     }

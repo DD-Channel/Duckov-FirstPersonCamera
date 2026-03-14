@@ -21,6 +21,7 @@ namespace FirstPersonCamera
     {
         #region 序列化字段和公共属性
         [Header("Camera Settings")]
+        
         [SerializeField] private float mouseSensitivityX = 0.10f;
         [SerializeField] private float mouseSensitivityY = 0.10f;
 
@@ -43,6 +44,7 @@ namespace FirstPersonCamera
 
         [Header("Controls")]
         public KeyCode toggleKey = KeyCode.F5;
+        public bool EnableCameraUpdate { get; set; } = true;
 
         /// <summary>
         /// 单例实例（用于全局访问）
@@ -186,6 +188,7 @@ namespace FirstPersonCamera
 
             // 取消订阅场景加载事件
             UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+            CleanupMarkerModule();
         }
         #endregion
 

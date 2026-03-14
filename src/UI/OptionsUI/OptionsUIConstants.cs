@@ -11,7 +11,7 @@ namespace FirstPersonCamera
         /// 模组版本号
         /// 更新版本时只需修改此处
         /// </summary>
-        public const string ModVersion = "1.2.10";
+        public const string ModVersion = "1.3.1";
         #endregion
 
         #region 灵敏度选项键
@@ -594,6 +594,25 @@ namespace FirstPersonCamera
         /// 选项键：禁用枪口火光
         /// </summary>
         public const string DisableMuzzleFlashKey = "FirstPersonCamera_DisableMuzzleFlash";
+        // 狙击枪增强开关
+        public const string SniperEnhanceEnabledKey = "FirstPersonCamera_SniperEnhanceEnabled";
+        // 射程倍率
+        public const string SniperDistanceMultiplierKey = "FirstPersonCamera_SniperDistanceMultiplier";
+        // 子弹速度倍率
+        public const string SniperBulletSpeedMultiplierKey = "FirstPersonCamera_SniperBulletSpeedMultiplier";
+        // 开镜时间倍率
+        public const string SniperADSTimeMultiplierKey = "FirstPersonCamera_SniperADSTimeMultiplier";
+
+        // 默认值
+        public const float SniperDistanceMultiplierDefault = 1.5f;
+        public const float SniperBulletSpeedMultiplierDefault = 1.3f;
+        public const float SniperADSTimeMultiplierDefault = 0.8f;
+
+        // 范围
+        public const float SniperMultiplierMin = 0.1f;
+        public const float SniperMultiplierMax = 3.0f;
+        public const float SniperADSTimeMultiplierMin = 0.01f;
+        public const float SniperADSTimeMultiplierMax = 1.0f;
         #endregion
     }
 }
